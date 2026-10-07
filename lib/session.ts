@@ -10,7 +10,9 @@ export const getSession = cache(async () => {
   return auth.api.getSession({ headers: await headers() });
 });
 
-// Brug i alle beskyttede sider, layouts og Server Actions: returnerer sessionen eller sender til /login
+// Returnerer sessionen eller sender til /login.
+// Regel: kald den først i hver funktion, der henter eller ændrer data (lib/data/*, Server Actions),
+// så en side ikke kan glemme tjekket. Et kald i et layout beskytter ikke siderne under det.
 export async function requireSession() {
   const session = await getSession();
   if (!session) redirect('/login');

@@ -106,14 +106,29 @@ Alle variabler er beskrevet i [`.env.example`](.env.example). `.env` indeholder 
 ## Projektstruktur
 
 ```
-app/                 sider, layouts og global CSS (routing)
+app/(app)/           sider bag login med fælles shell (topbar + sidepanel)
+app/login/           login-side og Server Actions til log ind/ud
+app/api/auth/        Better Auths endpoints
 app/generated/       genereret Prisma-klient (ikke i git)
+components/          delte komponenter (topbar, sidepanel …)
 lib/db.ts            den fælles Prisma-klient – importér prisma herfra
+lib/auth.ts          Better Auth-konfiguration
+lib/session.ts       getSession() og requireSession()
+proxy.ts             sender besøgende uden session-cookie til /login
 prisma/              schema.prisma og migrationer
 docker-compose.yml   lokal Postgres
 ```
 
 Styling følger Better Developers' styleguide. Se [`bd-style.md`](bd-style.md).
+
+## Adgangskontrol
+
+Siderne er beskyttet i to lag:
+
+1. **`proxy.ts`** sender besøgende uden session-cookie til `/login`. Den tjekker kun, om cookien findes, og ikke om den er gyldig.
+2. **`requireSession()`** slår sessionen op i databasen og sender til `/login`, hvis den ikke er gyldig.
+
+**Regel:** kald `requireSession()` først i hver funktion, der henter eller ændrer data, altså datafunktioner i `lib/` og Server Actions. Læg ikke tjekket i en side eller et layout. Et layout kører ikke ved navigation, og siden renderes parallelt med det, så et tjek dér beskytter ikke dataene.
 
 ## Fejlsøgning
 

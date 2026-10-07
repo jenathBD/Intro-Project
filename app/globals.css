@@ -26,3 +26,23 @@
   --font-sans: var(--bd-font-sans);
   --font-mono: var(--bd-font-mono);
 }
+
+/* ---------- Projekt: app-shell (#9). Bygger på BD-kernens .bd-shell og .bd-nav; registreret i bd-style.md ---------- */
+@layer components {
+  .bd-shell { min-height: 100dvh; grid-template-rows: auto 1fr; }
+
+  /* Indhold øverst, footer i bunden: indholdet tager den ledige plads og skubber footeren ned */
+  .bd-main { grid-template-rows: 1fr auto; }
+  .bd-main-body { display: grid; gap: var(--bd-s5); align-content: start; min-width: 0; }
+
+  /* Sammenfoldeligt sidepanel: menuknappen findes kun på mobil */
+  .bd-nav-toggle { display: none; }
+  .bd-nav-links { display: grid; gap: 2px; align-content: start; }
+
+  @media (max-width: 760px) {
+    .bd-shell { grid-template-rows: auto auto 1fr; }
+    .bd-nav { grid-auto-flow: row; overflow-x: visible; padding-block: var(--bd-s2); }
+    .bd-nav-toggle { display: inline-flex; justify-self: start; }
+    .bd-nav[data-open='false'] .bd-nav-links { display: none; }
+  }
+}
