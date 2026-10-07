@@ -2,6 +2,8 @@
 
 Stil: følg bd-style.md (bd-styleguide skill). Ret stil i profilen, ikke i koden.
 
+Adgang: alle funktioner, der henter eller ændrer data (lib/*, Server Actions), kalder `requireSession()` fra `lib/session.ts` først. Stol ikke på layout eller proxy som adgangskontrol. Se README → Adgangskontrol.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
