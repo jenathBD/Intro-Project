@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+/* BD-komponenter i components-laget: de slår Tailwinds reset, men utilities (fx mt-8) kan stadig overskrive dem. */
+@import './bd-base.css' layer(components);
+
+/* BD-tokens som Tailwind-klasser (text-bd-muted, bg-bd-accent …). `inline` gør, at klasserne peger på variablerne, så mørk tilstand følger med. */
+@theme inline {
+  --color-bd-ink: var(--bd-ink);
+  --color-bd-ink-2: var(--bd-ink-2);
+  --color-bd-muted: var(--bd-muted);
+  --color-bd-line: var(--bd-line);
+  --color-bd-canvas: var(--bd-canvas);
+  --color-bd-surface: var(--bd-surface);
+  --color-bd-surface-2: var(--bd-surface-2);
+  --color-bd-accent: var(--bd-accent);
+  --color-bd-accent-hover: var(--bd-accent-hover);
+  --color-bd-accent-soft: var(--bd-accent-soft);
+  --color-bd-on-accent: var(--bd-on-accent);
+  --color-bd-ok: var(--bd-ok);
+  --color-bd-ok-soft: var(--bd-ok-soft);
+  --color-bd-warn: var(--bd-warn);
+  --color-bd-warn-soft: var(--bd-warn-soft);
+  --color-bd-danger: var(--bd-danger);
+  --color-bd-danger-soft: var(--bd-danger-soft);
+
+  --font-sans: var(--bd-font-sans);
+  --font-mono: var(--bd-font-mono);
+}

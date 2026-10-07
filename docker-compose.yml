@@ -1,0 +1,22 @@
+# Lokal udviklingsdatabase. Start: docker compose up -d · Stop: docker compose down
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      # Skal matche DATABASE_URL i .env
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: intro_project
+    ports:
+      - '127.0.0.1:5432:5432' # kun din egen maskine : containeren
+    volumes:
+      - db-data:/var/lib/postgresql # data overlever genstart og 'down'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d intro_project']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
