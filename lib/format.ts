@@ -8,3 +8,9 @@ export const formatHours = (hours: number) => hoursFormat.format(hours);
 export const formatSignedHours = (hours: number) => (hours > 0 ? '+' : '') + hoursFormat.format(hours);
 
 export const formatKr = (amount: number) => krFormat.format(amount);
+
+// timeZone UTC: datoer fra @db.Date er midnat UTC. I dansk tid ville de ellers kunne blive vist som dagen før.
+const shortDateFormat = new Intl.DateTimeFormat('da-DK', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+/** Fx "7. okt." (BD: datoer i løbende tekst) */
+export const formatShortDate = (date: Date) => shortDateFormat.format(date);

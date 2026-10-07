@@ -95,6 +95,8 @@ model Verification {
 enum TimeEntrySource {
   mock
   clockify
+  /// Registreret i dashboardet
+  manual
 }
 
 enum PricingModel {
@@ -151,43 +153,73 @@ model ProjectTitleRate {
   @@map("project_title_rate")
 }
 
+enum WorkPackageStatus {
+  /// Ikke startet
+  notStarted
+  /// I gang
+  inProgress
+  /// Afventer (blokeret af noget uden for teamet)
+  onHold
+  /// Afsluttet
+  done
+}
+
+/// Kategori for arbejdspakker, fx Analyse eller Design. Standardkategorierne oprettes af migrationen; nye kan tilføjes (#14).
+model WorkPackageCategory {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  workPackages WorkPackage[]
+
+  @@map("work_package_category")
+}
+
 model WorkPackage {
-  id               String            @id @default(cuid())
+  id               String              @id @default(cuid())
   projectId        String
-  project          Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  project          Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
   name             String
   description      String?
-  estimateHours    Decimal           @db.Decimal(7, 2)
-  startDate        DateTime          @db.Date
-  endDate          DateTime          @db.Date
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  categoryId       String
+  category         WorkPackageCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  /// Den ene medarbejder, der er ansvarlig for arbejdspakken
+  responsibleId    String
+  responsible      Employee            @relation("WorkPackageResponsible", fields: [responsibleId], references: [id], onDelete: Restrict)
+  status           WorkPackageStatus   @default(notStarted)
+  estimateHours    Decimal             @db.Decimal(7, 2)
+  startDate        DateTime            @db.Date
+  endDate          DateTime            @db.Date
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   timeEntries      TimeEntry[]
   allocations      Allocation[]
   /// Resterende er altid den seneste opdatering (#13). Gemmes ikke på arbejdspakken.
   remainingUpdates RemainingUpdate[]
 
   @@index([projectId])
+  @@index([responsibleId])
   @@map("work_package")
 }
 
 model Employee {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   name           String
   /// Titlen bestemmer timeprisen på projekter med titelpriser (#18).
   titleId        String
-  title          Title        @relation(fields: [titleId], references: [id], onDelete: Restrict)
+  title          Title         @relation(fields: [titleId], references: [id], onDelete: Restrict)
   /// Timer pr. uge, der kan allokeres (#16).
-  weeklyCapacity Decimal      @db.Decimal(5, 2)
+  weeklyCapacity Decimal       @db.Decimal(5, 2)
   /// Kobling til Clockify (#22).
-  clockifyUserId String?      @unique
+  clockifyUserId String?       @unique
   /// Kobling til et login (#26, #27). Ikke alle medarbejdere har nødvendigvis en bruger.
-  userId         String?      @unique
-  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  userId         String?       @unique
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
   timeEntries    TimeEntry[]
   allocations    Allocation[]
+  responsibleFor WorkPackage[] @relation("WorkPackageResponsible")
 
   @@map("employee")
 }
