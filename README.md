@@ -54,7 +54,10 @@ docker compose up -d
 # 5. Opret tabellerne i databasen
 npx prisma migrate dev
 
-# 6. Start appen på http://localhost:3000
+# 6. Fyld databasen med mockdata (projekter, medarbejdere, timer …)
+npm run db:seed
+
+# 7. Start appen på http://localhost:3000
 npm run dev
 ```
 
@@ -80,6 +83,7 @@ npm run dev
 | `npx prisma migrate dev` | Opretter og kører migrationer ud fra `prisma/schema.prisma` |
 | `npx prisma generate` | Genererer Prisma-klienten igen (sker også ved `npm install`) |
 | `npx prisma studio` | Åbner en browser-visning af databasen |
+| `npm run db:seed` | Sletter alt domænedata og opretter mockdata igen. Brugere og logins bevares. Kør det aldrig mod en database med rigtige data |
 
 ### Når du ændrer databaseskemaet
 
@@ -90,6 +94,8 @@ npx prisma migrate dev --name beskriv_aendringen   # 1. opret og kør migratione
 npx prisma generate                                # 2. generér klienten (Prisma 7 gør det ikke automatisk)
 # 3. genstart npm run dev, for den kørende server har den gamle klient i cache
 ```
+
+Prisma 7 kører heller ikke seed automatisk efter en migration. Har ændringen betydning for mockdata, så opdatér `prisma/seed.ts`, og kør `npm run db:seed`.
 
 Better Auths tabeller (`user`, `session`, `account`, `verification`) genereres med `npx auth generate`. Ret dem ikke i hånden.
 
