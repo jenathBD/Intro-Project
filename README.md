@@ -58,6 +58,8 @@ npx prisma migrate dev
 npm run dev
 ```
 
+Alle sider kræver login. Første gang skal du oprette en bruger under **Opret bruger** på http://localhost:3000/login.
+
 ### Til daglig
 
 ```bash
@@ -78,6 +80,18 @@ npm run dev
 | `npx prisma migrate dev` | Opretter og kører migrationer ud fra `prisma/schema.prisma` |
 | `npx prisma generate` | Genererer Prisma-klienten igen (sker også ved `npm install`) |
 | `npx prisma studio` | Åbner en browser-visning af databasen |
+
+### Når du ændrer databaseskemaet
+
+Efter hver ændring i `prisma/schema.prisma` skal du gøre tre ting:
+
+```bash
+npx prisma migrate dev --name beskriv_aendringen   # 1. opret og kør migrationen
+npx prisma generate                                # 2. generér klienten (Prisma 7 gør det ikke automatisk)
+# 3. genstart npm run dev, for den kørende server har den gamle klient i cache
+```
+
+Better Auths tabeller (`user`, `session`, `account`, `verification`) genereres med `npx auth generate`. Ret dem ikke i hånden.
 
 ## Miljøvariabler
 
@@ -108,3 +122,5 @@ Styling følger Better Developers' styleguide. Se [`bd-style.md`](bd-style.md).
 **`Can't reach database server at localhost:5432`.** Databasen kører ikke. Tjek, at Docker Desktop er startet, og kør `docker compose up -d`.
 
 **`Cannot find module '…/generated/prisma/client'`.** Klienten er ikke genereret. Kør `npx prisma generate`.
+
+**`BetterAuthError: Prisma schema mismatch … Missing tables`, selvom tabellerne findes.** Prisma-klienten er forældet. Kør `npx prisma generate`, og genstart `npm run dev`.
