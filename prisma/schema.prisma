@@ -23,6 +23,10 @@ model User {
   sessions      Session[]
   accounts      Account[]
 
+  // Vores relationer (ikke fra Better Auth). Bevar dem, hvis `npx auth generate` køres igen.
+  employee         Employee?
+  remainingUpdates RemainingUpdate[]
+
   @@unique([email])
   @@map("user")
 }
@@ -73,4 +77,178 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard-domænet (#10)
+// Timer: Decimal(7,2). Kroner: Decimal(10,2). Datoer uden klokkeslæt: @db.Date.
+//
+// Estimat, resterende og prognose er kun i timer. Kroner bruges kun til omkostningen
+// af brugt tid: TimeEntry.hours × TimeEntry.hourlyRate.
+//
+// Prisen fastlåses, når registreringen oprettes, ud fra projektets prismodel:
+//   fixed   → Project.hourlyRate
+//   byTitle → ProjectTitleRate for medarbejderens titel, ellers Title.standardRate
+// Senere ændringer i priser eller titler påvirker kun nye registreringer.
+// ---------------------------------------------------------------------------
+
+enum TimeEntrySource {
+  mock
+  clockify
+}
+
+enum PricingModel {
+  /// Samme timepris for alle på projektet
+  fixed
+  /// Prisen afhænger af medarbejderens titel
+  byTitle
+}
+
+/// Stilling, fx "Seniorudvikler". Bestemmer timeprisen på projekter med titelpriser.
+model Title {
+  id           String             @id @default(cuid())
+  name         String             @unique
+  /// BD's listepris i kr pr. time. Bruges, når projektet ikke har aftalt en anden pris for titlen.
+  standardRate Decimal            @db.Decimal(10, 2)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  employees    Employee[]
+  projectRates ProjectTitleRate[]
+  timeEntries  TimeEntry[]
+
+  @@map("title")
+}
+
+model Project {
+  id           String             @id @default(cuid())
+  name         String
+  customer     String
+  pricingModel PricingModel       @default(fixed)
+  /// Timepris i kr ved fast pris. Bruges ikke ved titelpriser.
+  hourlyRate   Decimal?           @db.Decimal(10, 2)
+  /// Sat, når projektet er arkiveret (#14). null = aktivt.
+  archivedAt   DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  workPackages WorkPackage[]
+  titleRates   ProjectTitleRate[]
+
+  @@map("project")
+}
+
+/// Aftalt pris for en titel på et projekt med titelpriser. Overskriver titlens standardpris.
+model ProjectTitleRate {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  titleId    String
+  title      Title    @relation(fields: [titleId], references: [id], onDelete: Restrict)
+  hourlyRate Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([projectId, titleId])
+  @@map("project_title_rate")
+}
+
+model WorkPackage {
+  id               String            @id @default(cuid())
+  projectId        String
+  project          Project           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  name             String
+  description      String?
+  estimateHours    Decimal           @db.Decimal(7, 2)
+  startDate        DateTime          @db.Date
+  endDate          DateTime          @db.Date
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  timeEntries      TimeEntry[]
+  allocations      Allocation[]
+  /// Resterende er altid den seneste opdatering (#13). Gemmes ikke på arbejdspakken.
+  remainingUpdates RemainingUpdate[]
+
+  @@index([projectId])
+  @@map("work_package")
+}
+
+model Employee {
+  id             String       @id @default(cuid())
+  name           String
+  /// Titlen bestemmer timeprisen på projekter med titelpriser (#18).
+  titleId        String
+  title          Title        @relation(fields: [titleId], references: [id], onDelete: Restrict)
+  /// Timer pr. uge, der kan allokeres (#16).
+  weeklyCapacity Decimal      @db.Decimal(5, 2)
+  /// Kobling til Clockify (#22).
+  clockifyUserId String?      @unique
+  /// Kobling til et login (#26, #27). Ikke alle medarbejdere har nødvendigvis en bruger.
+  userId         String?      @unique
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  timeEntries    TimeEntry[]
+  allocations    Allocation[]
+
+  @@map("employee")
+}
+
+/// Registreret (brugt) tid. Kommer fra mock-data nu og fra Clockify senere (#23).
+model TimeEntry {
+  id            String          @id @default(cuid())
+  employeeId    String
+  employee      Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  workPackageId String
+  workPackage   WorkPackage     @relation(fields: [workPackageId], references: [id], onDelete: Restrict)
+  date          DateTime        @db.Date
+  hours         Decimal         @db.Decimal(7, 2)
+  /// Medarbejderens titel, da registreringen blev oprettet. Ændres ikke bagudrettet.
+  titleId       String
+  title         Title           @relation(fields: [titleId], references: [id], onDelete: Restrict)
+  /// Timepris i kr, da registreringen blev oprettet. Ændres ikke bagudrettet.
+  hourlyRate    Decimal         @db.Decimal(10, 2)
+  description   String?
+  source        TimeEntrySource @default(mock)
+  /// Id i kildesystemet. Gør Clockify-importen idempotent: samme registrering importeres kun én gang.
+  externalId    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([source, externalId])
+  @@index([workPackageId])
+  @@index([employeeId, date])
+  @@map("time_entry")
+}
+
+/// Planlagte timer for en medarbejder på en arbejdspakke i en given uge (#16, #17).
+model Allocation {
+  id            String      @id @default(cuid())
+  employeeId    String
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workPackageId String
+  workPackage   WorkPackage @relation(fields: [workPackageId], references: [id], onDelete: Cascade)
+  /// Mandag i den uge, allokeringen gælder.
+  weekStart     DateTime    @db.Date
+  hours         Decimal     @db.Decimal(5, 2)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([employeeId, workPackageId, weekStart])
+  @@index([weekStart])
+  @@map("allocation")
+}
+
+/// Udviklerens vurdering af resterende timer på en arbejdspakke. Hver opdatering gemmes som historik (#13, #15).
+model RemainingUpdate {
+  id             String      @id @default(cuid())
+  workPackageId  String
+  workPackage    WorkPackage @relation(fields: [workPackageId], references: [id], onDelete: Cascade)
+  remainingHours Decimal     @db.Decimal(7, 2)
+  comment        String?
+  /// Hvem der opdaterede. null for seed-data, eller hvis brugeren er slettet.
+  userId         String?
+  user           User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now())
+
+  @@index([workPackageId, createdAt])
+  @@map("remaining_update")
 }
