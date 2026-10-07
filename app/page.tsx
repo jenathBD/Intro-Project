@@ -16,7 +16,7 @@ export default function HomePage() {
       </div>
       <main className="bd-main">
         <Header title="Header 1" />
-        <footer className="bd-footer mt-12 text-bd-muted">Better Developers · Aarhus · v0.1</footer>
+        <footer className="bd-footer mt-12">Better Developers · Aarhus · v0.1</footer>
       </main>
     </>
   );
