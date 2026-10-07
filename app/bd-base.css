@@ -1,0 +1,259 @@
+/* ==========================================================================
+   Better Developers – base.css  ·  v0.1 (udkast)
+   Til interne værktøjer. Indlæs fonte:
+   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+   Alle komponenter bruger tokens – brug aldrig hex direkte i et værktøj.
+   ========================================================================== */
+
+:root {
+  /* Farver – lys */
+  --bd-ink:          #15171C;  /* tekst, logo, primær flade i mørke elementer */
+  --bd-ink-2:        #3A3F4A;  /* sekundær tekst */
+  --bd-muted:        #646B78;  /* hjælpetekst, labels */
+  --bd-line:         #E1E4EA;  /* borders, dividers */
+  --bd-canvas:       #F3F4F7;  /* sidebaggrund */
+  --bd-surface:      #FFFFFF;  /* kort, tabeller, felter */
+  --bd-surface-2:    #F8F9FB;  /* hover, zebra, header i tabel */
+  --bd-accent:       #2346D8;  /* BD-blå: handlinger, links, fokus, aktiv tilstand */
+  --bd-accent-hover: #1B38B4;
+  --bd-accent-soft:  #E8ECFC;
+  --bd-on-accent:    #FFFFFF;
+
+  /* Semantik – adskilt fra accent. Følger review-skalaen */
+  --bd-ok:        #1F7A50;  --bd-ok-soft:     #E3F2EA;
+  --bd-warn:      #B5600C;  --bd-warn-soft:   #FBEEDD;  /* "Vigtig" */
+  --bd-danger:    #C2352B;  --bd-danger-soft: #FBE7E5;  /* "Blokerende" */
+  --bd-info:      var(--bd-accent); --bd-info-soft: var(--bd-accent-soft); /* "Mindre" */
+
+  /* Typografi */
+  --bd-font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --bd-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --bd-fs-xs: 0.75rem;   /* 12 – eyebrow, meta */
+  --bd-fs-sm: 0.8125rem; /* 13 – tabel, hjælpetekst */
+  --bd-fs-md: 0.9375rem; /* 15 – brødtekst i værktøjer */
+  --bd-fs-lg: 1.125rem;  /* 18 – korttitel */
+  --bd-fs-xl: 1.5rem;    /* 24 – sidetitel */
+  --bd-fs-2xl: 2rem;     /* 32 – nøgletal */
+  --bd-tracking-eyebrow: 0.16em;
+
+  /* Rum, radius, skygge */
+  --bd-s1: 4px; --bd-s2: 8px; --bd-s3: 12px; --bd-s4: 16px; --bd-s5: 24px; --bd-s6: 32px; --bd-s7: 48px;
+  --bd-r-sm: 4px;  /* knapper, felter, chips */
+  --bd-r-md: 8px;  /* kort, tabeller */
+  --bd-r-lg: 12px; /* dialoger */
+  --bd-shadow-pop: 0 12px 32px -12px rgba(21, 23, 28, 0.28);
+  --bd-focus: 0 0 0 3px color-mix(in srgb, var(--bd-accent) 35%, transparent);
+  --bd-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bd-ink: #E9ECF1; --bd-ink-2: #C3C8D2; --bd-muted: #969EAC; --bd-line: #2A2F39;
+    --bd-canvas: #0F1115; --bd-surface: #171A20; --bd-surface-2: #1D2129;
+    --bd-accent: #7E94FF; --bd-accent-hover: #9DAEFF; --bd-accent-soft: #1E2547; --bd-on-accent: #0F1115;
+    --bd-ok: #5CC48F; --bd-ok-soft: #13291E; --bd-warn: #F0A250; --bd-warn-soft: #2E2112;
+    --bd-danger: #F07A70; --bd-danger-soft: #331A18;
+    --bd-shadow-pop: 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bd-ink: #E9ECF1; --bd-ink-2: #C3C8D2; --bd-muted: #969EAC; --bd-line: #2A2F39;
+  --bd-canvas: #0F1115; --bd-surface: #171A20; --bd-surface-2: #1D2129;
+  --bd-accent: #7E94FF; --bd-accent-hover: #9DAEFF; --bd-accent-soft: #1E2547; --bd-on-accent: #0F1115;
+  --bd-ok: #5CC48F; --bd-ok-soft: #13291E; --bd-warn: #F0A250; --bd-warn-soft: #2E2112;
+  --bd-danger: #F07A70; --bd-danger-soft: #331A18;
+  --bd-shadow-pop: 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+/* ---------- Base ---------- */
+.bd, .bd * { box-sizing: border-box; }
+.bd {
+  font-family: var(--bd-font-sans); font-size: var(--bd-fs-md); line-height: 1.55;
+  color: var(--bd-ink); background: var(--bd-canvas);
+  -webkit-font-smoothing: antialiased;
+}
+.bd a { color: var(--bd-accent); text-underline-offset: 2px; }
+.bd :focus-visible { outline: none; box-shadow: var(--bd-focus); border-radius: var(--bd-r-sm); }
+.bd .num, .bd td.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Typografi ---------- */
+.bd-eyebrow {
+  font-family: var(--bd-font-mono); font-size: var(--bd-fs-xs); font-weight: 500;
+  letter-spacing: var(--bd-tracking-eyebrow); text-transform: uppercase; color: var(--bd-muted);
+  margin: 0;
+}
+.bd-title { font-size: var(--bd-fs-xl); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.bd-h2 { font-size: var(--bd-fs-lg); font-weight: 650; line-height: 1.3; margin: 0; text-wrap: balance; }
+.bd-lede { color: var(--bd-ink-2); max-width: 62ch; margin: 0; }
+.bd-meta { font-size: var(--bd-fs-sm); color: var(--bd-muted); }
+.bd-page-head { display: grid; gap: var(--bd-s2); }
+
+/* ---------- App shell ---------- */
+.bd-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100%; }
+.bd-topbar {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--bd-s3) var(--bd-s4);
+  padding: var(--bd-s3) var(--bd-s5); background: var(--bd-surface); border-bottom: 1px solid var(--bd-line);
+}
+.bd-topbar .bd-tool { font-weight: 600; padding-left: var(--bd-s4); border-left: 1px solid var(--bd-line); }
+.bd-topbar .bd-spacer { flex: 1; }
+.bd-nav { padding: var(--bd-s4) var(--bd-s3); border-right: 1px solid var(--bd-line); background: var(--bd-surface); display: grid; align-content: start; gap: 2px; }
+.bd-nav a {
+  display: flex; align-items: center; gap: var(--bd-s2); padding: 7px var(--bd-s3); border-radius: var(--bd-r-sm);
+  color: var(--bd-ink-2); text-decoration: none; font-size: var(--bd-fs-sm); font-weight: 500;
+}
+.bd-nav a:hover { background: var(--bd-surface-2); color: var(--bd-ink); }
+.bd-nav a[aria-current="page"] { background: var(--bd-accent-soft); color: var(--bd-accent); font-weight: 600; }
+.bd-nav .bd-count { margin-left: auto; font-family: var(--bd-font-mono); font-size: var(--bd-fs-xs); color: var(--bd-muted); }
+.bd-main { padding: var(--bd-s5); display: grid; gap: var(--bd-s5); align-content: start; min-width: 0; }
+@media (max-width: 760px) {
+  .bd-shell { grid-template-columns: minmax(0, 1fr); }
+  .bd-nav { border-right: 0; border-bottom: 1px solid var(--bd-line); grid-auto-flow: column; overflow-x: auto; }
+  .bd-main { padding: var(--bd-s4); }
+}
+
+/* ---------- Wordmark (pladsholder indtil rigtigt logo) ---------- */
+.bd-wordmark { display: inline-flex; align-items: baseline; font-size: 1.0625rem; letter-spacing: -0.02em; color: var(--bd-ink); white-space: nowrap; }
+.bd-wordmark b { font-weight: 800; }
+.bd-wordmark span { font-weight: 400; }
+
+/* ---------- Knapper ---------- */
+.bd-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--bd-s2);
+  font: inherit; font-size: var(--bd-fs-sm); font-weight: 600; line-height: 1;
+  padding: 10px var(--bd-s4); border-radius: var(--bd-r-sm); border: 1px solid transparent;
+  cursor: pointer; transition: background .15s var(--bd-ease), border-color .15s var(--bd-ease);
+  text-decoration: none; white-space: nowrap;
+}
+.bd-btn--primary { background: var(--bd-accent); color: var(--bd-on-accent); }
+.bd-btn--primary:hover { background: var(--bd-accent-hover); }
+.bd-btn--secondary { background: var(--bd-surface); color: var(--bd-ink); border-color: var(--bd-line); }
+.bd-btn--secondary:hover { border-color: var(--bd-muted); }
+.bd-btn--ghost { background: transparent; color: var(--bd-ink-2); }
+.bd-btn--ghost:hover { background: var(--bd-surface-2); color: var(--bd-ink); }
+.bd-btn--danger { background: var(--bd-surface); color: var(--bd-danger); border-color: color-mix(in srgb, var(--bd-danger) 40%, var(--bd-line)); }
+.bd-btn--danger:hover { background: var(--bd-danger-soft); }
+.bd-btn--sm { padding: 6px var(--bd-s3); font-size: var(--bd-fs-xs); }
+.bd-btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* ---------- Formularer ---------- */
+.bd-field { display: grid; gap: 6px; min-width: 0; }
+.bd-label { font-size: var(--bd-fs-sm); font-weight: 600; color: var(--bd-ink); }
+.bd-input, .bd-select, .bd-textarea {
+  font: inherit; font-size: var(--bd-fs-md); color: var(--bd-ink); background: var(--bd-surface);
+  border: 1px solid var(--bd-line); border-radius: var(--bd-r-sm); padding: 9px var(--bd-s3); width: 100%;
+}
+.bd-input:hover, .bd-select:hover, .bd-textarea:hover { border-color: color-mix(in srgb, var(--bd-muted) 60%, var(--bd-line)); }
+.bd-input:focus, .bd-select:focus, .bd-textarea:focus { outline: none; border-color: var(--bd-accent); box-shadow: var(--bd-focus); }
+.bd-hint { font-size: var(--bd-fs-xs); color: var(--bd-muted); }
+.bd-field.is-error .bd-input { border-color: var(--bd-danger); }
+.bd-field.is-error .bd-hint { color: var(--bd-danger); }
+
+/* ---------- Badges og chips ---------- */
+.bd-badge {
+  display: inline-flex; align-items: center; gap: 6px; font-size: var(--bd-fs-xs); font-weight: 600;
+  padding: 3px 8px; border-radius: var(--bd-r-sm); white-space: nowrap; line-height: 1.3;
+  background: var(--bd-surface-2); color: var(--bd-ink-2); border: 1px solid var(--bd-line);
+}
+.bd-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.bd-badge--plain::before { display: none; }
+.bd-badge--ok     { background: var(--bd-ok-soft);     color: var(--bd-ok);     border-color: transparent; }
+.bd-badge--warn   { background: var(--bd-warn-soft);   color: var(--bd-warn);   border-color: transparent; }
+.bd-badge--danger { background: var(--bd-danger-soft); color: var(--bd-danger); border-color: transparent; }
+.bd-badge--info   { background: var(--bd-info-soft);   color: var(--bd-info);   border-color: transparent; }
+.bd-badge--strong { background: var(--bd-ink); color: var(--bd-surface); border-color: transparent; letter-spacing: .08em; text-transform: uppercase; font-size: 0.6875rem; }
+.bd-badge--strong::before { display: none; }
+
+/* Issue-/sags-ID: A-01, PR-05, B-24 */
+.bd-id {
+  font-family: var(--bd-font-mono); font-size: var(--bd-fs-xs); font-weight: 500;
+  padding: 2px 6px; border-radius: 3px; background: var(--bd-surface-2); border: 1px solid var(--bd-line);
+  color: var(--bd-ink-2); white-space: nowrap;
+}
+
+/* ---------- Kort og nøgletal ---------- */
+.bd-card { background: var(--bd-surface); border: 1px solid var(--bd-line); border-radius: var(--bd-r-md); padding: var(--bd-s5); display: grid; gap: var(--bd-s3); min-width: 0; }
+.bd-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--bd-s3); flex-wrap: wrap; }
+.bd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--bd-s3); }
+.bd-stat { background: var(--bd-surface); border: 1px solid var(--bd-line); border-radius: var(--bd-r-md); padding: var(--bd-s4); display: grid; gap: 2px; }
+.bd-stat__value { font-size: var(--bd-fs-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bd-stat__value small { font-size: var(--bd-fs-md); font-weight: 500; color: var(--bd-muted); margin-left: 4px; }
+.bd-stat__delta { font-size: var(--bd-fs-xs); color: var(--bd-muted); }
+.bd-stat__delta.is-bad { color: var(--bd-danger); }
+.bd-stat__delta.is-good { color: var(--bd-ok); }
+
+/* ---------- Tabel ---------- */
+.bd-table-wrap { overflow-x: auto; border: 1px solid var(--bd-line); border-radius: var(--bd-r-md); background: var(--bd-surface); }
+.bd-table { width: 100%; border-collapse: collapse; font-size: var(--bd-fs-sm); }
+.bd-table th {
+  text-align: left; font-family: var(--bd-font-mono); font-size: 0.6875rem; font-weight: 500;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--bd-muted);
+  padding: 10px var(--bd-s4); background: var(--bd-surface-2); border-bottom: 1px solid var(--bd-line); white-space: nowrap;
+}
+.bd-table td { padding: 11px var(--bd-s4); border-bottom: 1px solid var(--bd-line); vertical-align: middle; }
+.bd-table tr:last-child td { border-bottom: 0; }
+.bd-table tbody tr:hover td { background: var(--bd-surface-2); }
+.bd-table td.num, .bd-table th.num { text-align: right; }
+/* Alvorlighed som stribe i venstre kant af rækken */
+.bd-table tr[data-sev] td:first-child { box-shadow: inset 3px 0 0 var(--sev, transparent); }
+.bd-table tr[data-sev="blocker"] { --sev: var(--bd-danger); }
+.bd-table tr[data-sev="major"]   { --sev: var(--bd-warn); }
+.bd-table tr[data-sev="minor"]   { --sev: var(--bd-info); }
+
+/* ---------- Callouts: antagelse, risiko, info ---------- */
+.bd-callout {
+  display: grid; gap: 4px; padding: var(--bd-s3) var(--bd-s4); border-radius: var(--bd-r-sm);
+  background: var(--bd-surface-2); border: 1px solid var(--bd-line); font-size: var(--bd-fs-sm); color: var(--bd-ink-2);
+}
+.bd-callout > .bd-eyebrow { color: var(--bd-ink); }
+.bd-callout--risk { background: var(--bd-warn-soft); border-color: transparent; }
+.bd-callout--risk > .bd-eyebrow { color: var(--bd-warn); }
+.bd-callout--blocker { background: var(--bd-danger-soft); border-color: transparent; }
+.bd-callout--blocker > .bd-eyebrow { color: var(--bd-danger); }
+.bd-callout--info { background: var(--bd-accent-soft); border-color: transparent; }
+.bd-callout--info > .bd-eyebrow { color: var(--bd-accent); }
+
+/* ---------- Faner ---------- */
+.bd-tabs { display: flex; gap: var(--bd-s4); border-bottom: 1px solid var(--bd-line); overflow-x: auto; }
+.bd-tab {
+  font: inherit; font-size: var(--bd-fs-sm); font-weight: 500; color: var(--bd-muted); background: none; border: 0;
+  padding: var(--bd-s2) 2px 10px; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; white-space: nowrap;
+}
+.bd-tab:hover { color: var(--bd-ink); }
+.bd-tab[aria-selected="true"] { color: var(--bd-ink); font-weight: 600; border-bottom-color: var(--bd-accent); }
+
+/* ---------- Trin / faser (kun når rækkefølgen betyder noget) ---------- */
+.bd-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--bd-s2); counter-reset: step; }
+.bd-step { counter-increment: step; display: grid; gap: 2px; padding: var(--bd-s3); border-top: 2px solid var(--bd-line); }
+.bd-step::before { content: counter(step, decimal-leading-zero); font-family: var(--bd-font-mono); font-size: var(--bd-fs-xs); color: var(--bd-muted); }
+.bd-step strong { font-size: var(--bd-fs-sm); }
+.bd-step span { font-size: var(--bd-fs-xs); color: var(--bd-muted); }
+.bd-step.is-done { border-top-color: var(--bd-ink); }
+.bd-step.is-current { border-top-color: var(--bd-accent); }
+.bd-step.is-current::before { color: var(--bd-accent); }
+
+/* ---------- Tom tilstand ---------- */
+.bd-empty { border: 1px dashed var(--bd-line); border-radius: var(--bd-r-md); padding: var(--bd-s6) var(--bd-s5); text-align: center; display: grid; gap: var(--bd-s2); justify-items: center; color: var(--bd-muted); font-size: var(--bd-fs-sm); }
+.bd-empty strong { color: var(--bd-ink); font-size: var(--bd-fs-md); }
+
+/* ---------- Toast ---------- */
+.bd-toast {
+  display: inline-flex; align-items: center; gap: var(--bd-s3); padding: 10px var(--bd-s4);
+  background: var(--bd-ink); color: var(--bd-surface); border-radius: var(--bd-r-sm); font-size: var(--bd-fs-sm);
+  box-shadow: var(--bd-shadow-pop);
+}
+.bd-toast .bd-id { background: transparent; color: inherit; border-color: color-mix(in srgb, var(--bd-surface) 30%, transparent); }
+
+/* ---------- Footer ---------- */
+.bd-footer { font-family: var(--bd-font-mono); font-size: var(--bd-fs-xs); color: var(--bd-muted); letter-spacing: .04em; }
+
+@media (prefers-reduced-motion: reduce) { .bd * { transition: none !important; animation: none !important; } }
+
+/* ==========================================================================
+   Projekt-overrides (fra bd-style.md)
+   BD-kerne: ingen overrides. Tilføj kun tokens her via profilen.
+   ========================================================================== */
+:root {}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {} }
+:root[data-theme="dark"] {}
