@@ -35,9 +35,59 @@
   .bd-main { grid-template-rows: 1fr auto; }
   .bd-main-body { display: grid; gap: var(--bd-s5); align-content: start; min-width: 0; }
 
+  /* Uden minmax(0, 1fr) vokser grid-kolonnen til det bredeste indhold (fx en bred tabel)
+     og skubber hele siden ud over skærmen. Med den bliver tabellen i stedet scrollbar i sin ramme. */
+  .bd-main, .bd-main-body { grid-template-columns: minmax(0, 1fr); }
+
   /* Sammenfoldeligt sidepanel: menuknappen findes kun på mobil */
   .bd-nav-toggle { display: none; }
   .bd-nav-links { display: grid; gap: 2px; align-content: start; }
+
+  /* Træstruktur i tabeller (#12): grupperække med fold-knap og indrykkede rækker under */
+  /* Grupperækken: fed, større tekst og baggrund. Kun gruppen er fed; rækkerne under er normal vægt. */
+  .bd-table .bd-group-row { cursor: pointer; }
+  .bd-table .bd-group-row td { background: var(--bd-surface-2); font-weight: 700; }
+  /* Kraftig linje mellem grupperne, så de læses som blokke */
+  .bd-table tbody + tbody .bd-group-row td { border-top: 2px solid var(--bd-line); }
+  .bd-group-toggle {
+    display: inline-flex; align-items: center; gap: var(--bd-s2);
+    font: inherit; font-size: var(--bd-fs-md); font-weight: 700; color: var(--bd-ink);
+    background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap;
+  }
+  .bd-group-toggle > span[aria-hidden] { width: 1em; color: var(--bd-muted); }
+  .bd-group-toggle .bd-meta { font-weight: 400; }
+  /* Rækker under en gruppe: indrykket med en lodret træ-linje under fold-pilen.
+     background-image og ikke border/box-shadow, fordi BD's røde stribe (data-sev) bruger box-shadow. */
+  .bd-table td.bd-tree-child {
+    padding-left: calc(var(--bd-s4) + var(--bd-s6));
+    background-image: linear-gradient(var(--bd-line), var(--bd-line));
+    background-size: 1px 100%;
+    background-position: calc(var(--bd-s4) + 0.5em) 0;
+    background-repeat: no-repeat;
+  }
+
+  /* Dialog (fx "Registrér tid"): BD's radius for dialoger og pop-skygge */
+  .bd-dialog {
+    width: min(440px, calc(100vw - 2 * var(--bd-s4))); margin: auto; padding: var(--bd-s5);
+    background: var(--bd-surface); color: var(--bd-ink);
+    border: 1px solid var(--bd-line); border-radius: var(--bd-r-lg); box-shadow: var(--bd-shadow-pop);
+  }
+  .bd-dialog::backdrop { background: color-mix(in srgb, var(--bd-canvas) 70%, transparent); }
+  .bd-dialog--wide { width: min(760px, calc(100vw - 2 * var(--bd-s4))); }
+
+  /* Tal eller tekst, der kan klikkes for at se detaljer (fx "Brugt" → registreringer) */
+  .bd-link-button {
+    font: inherit; font-variant-numeric: tabular-nums; color: var(--bd-accent);
+    background: none; border: 0; padding: 0; cursor: pointer;
+    text-decoration: underline dotted; text-underline-offset: 3px;
+  }
+  .bd-link-button:hover { text-decoration-style: solid; }
+
+  /* Toast nederst til højre */
+  .bd-toast-region { position: fixed; right: var(--bd-s5); bottom: var(--bd-s5); z-index: 50; }
+
+  /* Total-række nederst i en tabel (#12) */
+  .bd-table tfoot td { border-top: 2px solid var(--bd-line); border-bottom: 0; font-weight: 600; }
 
   @media (max-width: 760px) {
     .bd-shell { grid-template-rows: auto auto 1fr; }

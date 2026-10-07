@@ -1,12 +1,11 @@
 import 'server-only';
 
+import { Prisma, type WorkPackageStatus } from '@/app/generated/prisma/client';
 import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/session';
 
-export type ProjectOverviewRow = {
-  id: string;
-  name: string;
-  customer: string;
+/** Nøgletal, der kan summeres fra arbejdspakke til projekt */
+export type Figures = {
   estimateHours: number;
   spentHours: number;
   remainingHours: number;
@@ -18,62 +17,139 @@ export type ProjectOverviewRow = {
   spentCost: number;
 };
 
-// Ét projekt til projektdetaljen. null, hvis id'et ikke findes.
-export async function getProject(id: string) {
-  await requireSession();
-  return prisma.project.findUnique({
-    where: { id },
-    select: { id: true, name: true, customer: true, archivedAt: true },
-  });
-}
+export type ProjectOverviewRow = Figures & { id: string; name: string; customer: string };
 
-// Nøgletal for alle aktive projekter. Al aggregering sker i databasen i én forespørgsel,
-// fordi brugt i kr er SUM(timer × pris) pr. række, og det kan Prisma's _sum ikke udtrykke.
-export async function getProjectOverview(): Promise<ProjectOverviewRow[]> {
-  await requireSession();
+export type WorkPackageRow = Figures & {
+  id: string;
+  name: string;
+  categoryName: string;
+  responsibleName: string;
+  status: WorkPackageStatus;
+  startDate: Date;
+  endDate: Date;
+};
 
-  // ::float8 gør Postgres' numeric til almindelige JavaScript-tal. Fint til visning; beløbene her er summer af to-decimal-tal.
-  const rows = await prisma.$queryRaw<Omit<ProjectOverviewRow, 'forecastHours' | 'varianceHours'>[]>`
-    WITH estimate AS (
-      SELECT "projectId", SUM("estimateHours") AS hours
-      FROM work_package
-      GROUP BY "projectId"
-    ),
-    spent AS (
-      SELECT wp."projectId", SUM(te.hours) AS hours, SUM(te.hours * te."hourlyRate") AS cost
-      FROM time_entry te
-      JOIN work_package wp ON wp.id = te."workPackageId"
-      GROUP BY wp."projectId"
+/** Arbejdspakkerne i én kategori med subtotal og udledt status */
+export type CategoryGroup = {
+  categoryName: string;
+  status: WorkPackageStatus;
+  workPackages: WorkPackageRow[];
+  totals: Figures;
+};
+
+type RawWorkPackage = Omit<WorkPackageRow, 'forecastHours' | 'varianceHours'> & { projectId: string };
+
+// Nøgletal pr. arbejdspakke. Den ENESTE kilde til estimat, brugt, resterende og kr:
+// projekttotaler er summen af arbejdspakkerne og kan derfor ikke komme ud af takt med dem.
+// filter er et Prisma.sql-fragment, så værdier altid sendes som parametre og aldrig som SQL-tekst.
+function queryWorkPackages(filter: Prisma.Sql) {
+  // ::float8 gør Postgres' numeric til almindelige JavaScript-tal, så komponenterne ikke skal kende Decimal
+  return prisma.$queryRaw<RawWorkPackage[]>`
+    WITH spent AS (
+      -- Brugt i kr er SUM(timer × pris) pr. række, som Prismas _sum ikke kan udtrykke
+      SELECT "workPackageId", SUM(hours) AS hours, SUM(hours * "hourlyRate") AS cost
+      FROM time_entry
+      GROUP BY "workPackageId"
     ),
     latest_remaining AS (
       -- Resterende er den seneste opdatering pr. arbejdspakke
       SELECT DISTINCT ON ("workPackageId") "workPackageId", "remainingHours"
       FROM remaining_update
       ORDER BY "workPackageId", "createdAt" DESC
-    ),
-    remaining AS (
-      SELECT wp."projectId", SUM(lr."remainingHours") AS hours
-      FROM latest_remaining lr
-      JOIN work_package wp ON wp.id = lr."workPackageId"
-      GROUP BY wp."projectId"
     )
     SELECT
-      p.id,
-      p.name,
-      p.customer,
-      COALESCE(e.hours, 0)::float8 AS "estimateHours",
+      wp.id,
+      wp."projectId",
+      wp.name,
+      c.name AS "categoryName",
+      e.name AS "responsibleName",
+      wp.status::text AS status,
+      wp."startDate",
+      wp."endDate",
+      wp."estimateHours"::float8 AS "estimateHours",
       COALESCE(s.hours, 0)::float8 AS "spentHours",
-      COALESCE(r.hours, 0)::float8 AS "remainingHours",
+      COALESCE(lr."remainingHours", 0)::float8 AS "remainingHours",
       COALESCE(s.cost, 0)::float8 AS "spentCost"
-    FROM project p
-    LEFT JOIN estimate e ON e."projectId" = p.id
-    LEFT JOIN spent s ON s."projectId" = p.id
-    LEFT JOIN remaining r ON r."projectId" = p.id
-    WHERE p."archivedAt" IS NULL
-    ORDER BY p.name`;
+    FROM work_package wp
+    JOIN project p ON p.id = wp."projectId"
+    JOIN work_package_category c ON c.id = wp."categoryId"
+    JOIN employee e ON e.id = wp."responsibleId"
+    LEFT JOIN spent s ON s."workPackageId" = wp.id
+    LEFT JOIN latest_remaining lr ON lr."workPackageId" = wp.id
+    WHERE ${filter}
+    ORDER BY wp."startDate", wp.name`;
+}
 
-  return rows.map((row) => {
-    const forecastHours = row.spentHours + row.remainingHours;
-    return { ...row, forecastHours, varianceHours: forecastHours - row.estimateHours };
+function withForecast<T extends Omit<Figures, 'forecastHours' | 'varianceHours'>>(row: T): T & Figures {
+  const forecastHours = row.spentHours + row.remainingHours;
+  return { ...row, forecastHours, varianceHours: forecastHours - row.estimateHours };
+}
+
+function sumFigures(rows: Figures[]): Figures {
+  const total = (key: keyof Figures) => rows.reduce((sum, row) => sum + row[key], 0);
+  return withForecast({
+    estimateHours: total('estimateHours'),
+    spentHours: total('spentHours'),
+    remainingHours: total('remainingHours'),
+    spentCost: total('spentCost'),
   });
+}
+
+// Nøgletal for alle aktive projekter (#11)
+export async function getProjectOverview(): Promise<ProjectOverviewRow[]> {
+  await requireSession();
+
+  const [projects, workPackages] = await Promise.all([
+    prisma.project.findMany({
+      where: { archivedAt: null },
+      select: { id: true, name: true, customer: true },
+      orderBy: { name: 'asc' },
+    }),
+    queryWorkPackages(Prisma.sql`p."archivedAt" IS NULL`),
+  ]);
+
+  return projects.map((project) => ({
+    ...project,
+    ...sumFigures(workPackages.filter((wp) => wp.projectId === project.id).map(withForecast)),
+  }));
+}
+
+// Grupperer arbejdspakker pr. kategori. Rækkerne er sorteret efter startdato, så kategorierne
+// kommer i den rækkefølge, deres første pakke starter (typisk Analyse og Design før Udvikling).
+function groupByCategory(workPackages: WorkPackageRow[]): CategoryGroup[] {
+  const groups = new Map<string, WorkPackageRow[]>();
+  for (const wp of workPackages) {
+    groups.set(wp.categoryName, [...(groups.get(wp.categoryName) ?? []), wp]);
+  }
+  return [...groups].map(([categoryName, rows]) => ({
+    categoryName,
+    status: categoryStatus(rows.map((wp) => wp.status)),
+    workPackages: rows,
+    totals: sumFigures(rows),
+  }));
+}
+
+// Kategoriens status udledes af arbejdspakkerne og gemmes ikke, så den aldrig kan modsige dem.
+// "Afventer" vinder over "I gang", så en blokeret pakke er synlig, også når kategorien er foldet sammen.
+function categoryStatus(statuses: WorkPackageStatus[]): WorkPackageStatus {
+  if (statuses.every((status) => status === 'done')) return 'done';
+  if (statuses.every((status) => status === 'notStarted')) return 'notStarted';
+  if (statuses.includes('onHold')) return 'onHold';
+  return 'inProgress';
+}
+
+// Ét projekt med arbejdspakker grupperet pr. kategori (#12). null, hvis id'et ikke findes.
+export async function getProjectDetail(id: string) {
+  await requireSession();
+
+  const project = await prisma.project.findUnique({
+    where: { id },
+    select: { id: true, name: true, customer: true, archivedAt: true },
+  });
+  if (!project) return null;
+
+  const rawWorkPackages = await queryWorkPackages(Prisma.sql`wp."projectId" = ${id}`);
+  const workPackages: WorkPackageRow[] = rawWorkPackages.map(({ projectId: _projectId, ...wp }) => withForecast(wp));
+
+  return { project, categories: groupByCategory(workPackages), totals: sumFigures(workPackages) };
 }
