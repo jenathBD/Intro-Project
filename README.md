@@ -1,6 +1,33 @@
-# Intro-Project
+# Introproject
+
+Internt dashboard til Better Developers, der giver overblik over projekternes budget og over, hvem der arbejder på hvad.
 
 Next.js 16 · TypeScript · Tailwind CSS 4 · Prisma 7 · Postgres 18 (Docker)
+
+## Om projektet
+
+Den vigtigste idé er at **opdage tidligt, om et projekt er på vej over budget**. Hvert projekt er opdelt i arbejdspakker med et estimat. Udvikleren opdaterer selv, hvor mange timer der er *resterende* på sin arbejdspakke, og dashboardet regner så:
+
+```
+prognose  = brugt + resterende
+afvigelse = prognose − estimat
+```
+
+Tallene summeres pr. projekt og vises i både timer og kroner (timer × timepris). Projekter, hvor prognosen overstiger estimatet, markeres med rødt.
+
+### Funktioner
+
+| Område | Indhold |
+|---|---|
+| **Projekter og budget** | Projektoversigt og projektdetalje med estimat, brugt, resterende, prognose og afvigelse. Historik over resterende og en prognosegraf over tid |
+| **Allokering og planlægning** | Ugegrid med medarbejdere og uger, der markerer over- og underbooking, samt en Gantt-tidslinje pr. projekt |
+| **Overblik** | Forside med nøgletal (projekter over budget, forældede estimater, ugens belægning), links til ressourcer og widgets |
+| **Integrationer** | Brugt tid hentes fra Clockify, og arbejdspakker kobles til GitHub-issues og PR'er |
+| **Brugere** | Login med Better Auth og rollerne admin, projektleder og medarbejder |
+
+### Status
+
+Projektet er i den første fase. Det tekniske fundament er på plads (TypeScript, Tailwind, Prisma og Postgres). Login, app-shell og datamodel er næste skridt. Opgaverne styres som [issues på GitHub](https://github.com/jenathBD/Intro-Project/issues), samlet i seks epics.
 
 ## Kom i gang
 
