@@ -87,13 +87,14 @@ npm run dev
 
 ### Når du ændrer databaseskemaet
 
-Efter hver ændring i `prisma/schema.prisma` skal du gøre tre ting:
+Efter hver ændring i `prisma/schema.prisma` skal du gøre to ting:
 
 ```bash
 npx prisma migrate dev --name beskriv_aendringen   # 1. opret og kør migrationen
 npx prisma generate                                # 2. generér klienten (Prisma 7 gør det ikke automatisk)
-# 3. genstart npm run dev, for den kørende server har den gamle klient i cache
 ```
+
+En kørende `npm run dev` opdager selv den nye klient og skriver *"Prisma-klienten er genereret igen – opretter en ny databaseforbindelse."* i terminalen. Du behøver ikke genstarte.
 
 Prisma 7 kører heller ikke seed automatisk efter en migration. Har ændringen betydning for mockdata, så opdatér `prisma/seed.ts`, og kør `npm run db:seed`.
 
@@ -144,4 +145,4 @@ Siderne er beskyttet i to lag:
 
 **`Cannot find module '…/generated/prisma/client'`.** Klienten er ikke genereret. Kør `npx prisma generate`.
 
-**`BetterAuthError: Prisma schema mismatch … Missing tables`, selvom tabellerne findes.** Prisma-klienten er forældet. Kør `npx prisma generate`, og genstart `npm run dev`.
+**`BetterAuthError: Prisma schema mismatch … Missing tables`, selvom tabellerne findes.** Prisma-klienten er forældet. Kør `npx prisma generate`, og genindlæs siden. Hjælper det ikke, så genstart `npm run dev`.
