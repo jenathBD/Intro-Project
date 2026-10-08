@@ -4,17 +4,17 @@
 /** Timer pr. uge, som 1,0 FTE svarer til */
 export const FULL_TIME_HOURS = 37;
 
-/** Under denne andel af sin kapacitet har en medarbejder ledig tid */
-export const UNDERBOOKED_BELOW = 0.8;
-
 /** Medarbejderens kapacitet i FTE, afrundet til 0,1: 37 t = 1,0 og 30 t = 0,8 */
 export const capacityFte = (weeklyCapacity: number) => Math.round((weeklyCapacity / FULL_TIME_HOURS) * 10) / 10;
 
 export type BookingLevel = 'over' | 'under' | 'ok';
 
-/** fte er den samlede allokering i en uge; capacity er medarbejderens kapacitet i FTE */
+/**
+ * fte er den samlede allokering i en uge; capacity er medarbejderens kapacitet i FTE.
+ * Over kapaciteten = overbooket. Under kapaciteten, også med bare 0,1, = ledig tid. Præcis kapaciteten = ok.
+ */
 export function bookingLevel(fte: number, capacity: number): BookingLevel {
   if (fte > capacity) return 'over';
-  if (fte < capacity * UNDERBOOKED_BELOW) return 'under';
+  if (fte < capacity) return 'under';
   return 'ok';
 }

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { Prisma, type WorkPackageStatus } from '@/app/generated/prisma/client';
+import { Prisma, type ProjectKind, type WorkPackageStatus } from '@/app/generated/prisma/client';
 import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/session';
 
@@ -17,7 +17,7 @@ export type Figures = {
   spentCost: number;
 };
 
-export type ProjectOverviewRow = Figures & { id: string; name: string; customer: string };
+export type ProjectOverviewRow = Figures & { id: string; name: string; customer: string; kind: ProjectKind };
 
 export type WorkPackageRow = Figures & {
   id: string;
@@ -104,14 +104,15 @@ function sumFigures(rows: Figures[]): Figures {
   });
 }
 
-// Nøgletal for alle aktive projekter (#11), eller for de arkiverede (#14)
+// Nøgletal for alle aktive projekter (#11), eller for de arkiverede (#14).
+// Fravær (fx Ferie) er ikke et projekt i oversigten og kommer ikke med (#44).
 export async function getProjectOverview({ archived = false } = {}): Promise<ProjectOverviewRow[]> {
   await requireSession();
 
   const [projects, workPackages] = await Promise.all([
     prisma.project.findMany({
-      where: { archivedAt: archived ? { not: null } : null },
-      select: { id: true, name: true, customer: true },
+      where: { archivedAt: archived ? { not: null } : null, kind: { not: 'absence' } },
+      select: { id: true, name: true, customer: true, kind: true },
       orderBy: { name: 'asc' },
     }),
     queryWorkPackages(archived ? Prisma.sql`p."archivedAt" IS NOT NULL` : Prisma.sql`p."archivedAt" IS NULL`),
@@ -158,6 +159,7 @@ export async function getProjectDetail(id: string) {
       name: true,
       customer: true,
       archivedAt: true,
+      kind: true,
       pricingModel: true,
       hourlyRate: true,
       titleRates: { select: { titleId: true, hourlyRate: true } },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useState, useTransition } from 'react';
-import type { PricingModel } from '@/app/generated/prisma/client';
+import type { PricingModel, ProjectKind } from '@/app/generated/prisma/client';
 import { FormDialogButton } from '@/components/form-dialog';
 import type { TitleRow } from '@/lib/data/employees';
 import type { ProjectForEdit } from '@/lib/data/projects';
@@ -16,6 +16,7 @@ const amountText = (amount: number | null | undefined) =>
 export function ProjectFormButton({ project, titles }: { project?: ProjectForEdit; titles: TitleRow[] }) {
   const id = useId();
   const [pricingModel, setPricingModel] = useState<PricingModel>(project?.pricingModel ?? 'fixed');
+  const [kind, setKind] = useState<ProjectKind>(project?.kind ?? 'client');
   const agreedRate = (titleId: string) => project?.titleRates.find((rate) => rate.titleId === titleId)?.hourlyRate;
 
   return (
@@ -29,17 +30,50 @@ export function ProjectFormButton({ project, titles }: { project?: ProjectForEdi
       wide
     >
       {project && <input type="hidden" name="id" value={project.id} />}
+
+      {/* Projekttype (#44): kun kundeprojekter har prismodel og periode */}
+      <fieldset className="bd-field m-0 border-0 p-0">
+        <legend className="bd-label mb-1.5">Type</legend>
+        <div className="flex flex-wrap gap-4">
+          {(
+            [
+              ['client', 'Kundeprojekt', 'Har prismodel og kan allokeres i projektets periode'],
+              ['internal', 'Internt', 'Fx kompetenceudvikling. Ingen pris, kan altid allokeres'],
+              ['absence', 'Fravær', 'Fx ferie. Ingen pris og ingen arbejdspakker'],
+            ] as const
+          ).map(([value, label, hint]) => (
+            <label key={value} className="flex max-w-56 items-start gap-2">
+              <input type="radio" name="kind" value={value} checked={kind === value} onChange={() => setKind(value)} className="mt-1" />
+              <span>
+                <span className="font-semibold">{label}</span>
+                <span className="bd-hint block">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="bd-field">
           <label className="bd-label" htmlFor={`${id}-name`}>Projektnavn</label>
           <input id={`${id}-name`} name="name" className="bd-input" defaultValue={project?.name} required autoComplete="off" />
         </div>
         <div className="bd-field">
-          <label className="bd-label" htmlFor={`${id}-customer`}>Kunde</label>
-          <input id={`${id}-customer`} name="customer" className="bd-input" defaultValue={project?.customer} required autoComplete="off" />
+          <label className="bd-label" htmlFor={`${id}-customer`}>{kind === 'client' ? 'Kunde' : 'Hører til'}</label>
+          <input
+            id={`${id}-customer`}
+            name="customer"
+            className="bd-input"
+            defaultValue={project?.customer ?? (kind === 'client' ? '' : 'Better Developers')}
+            key={kind === 'client' ? 'client' : 'other'}
+            required
+            autoComplete="off"
+          />
         </div>
       </div>
 
+      {kind === 'client' && (
+      <>
       <fieldset className="bd-field m-0 border-0 p-0">
         <legend className="bd-label mb-1.5">Prismodel</legend>
         <div className="flex flex-wrap gap-4">
@@ -118,8 +152,12 @@ export function ProjectFormButton({ project, titles }: { project?: ProjectForEdi
           </div>
         </div>
       )}
+      </>
+      )}
 
-      {project && <p className="bd-hint m-0">Ændrede priser gælder kun ny tid. Registreret tid beholder sin pris.</p>}
+      {project && kind === 'client' && (
+        <p className="bd-hint m-0">Ændrede priser gælder kun ny tid. Registreret tid beholder sin pris.</p>
+      )}
     </FormDialogButton>
   );
 }

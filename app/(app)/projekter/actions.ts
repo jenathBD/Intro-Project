@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import type { PricingModel } from '@/app/generated/prisma/client';
+import type { PricingModel, ProjectKind } from '@/app/generated/prisma/client';
 import type { FormState } from '@/components/form-dialog';
 import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/session';
@@ -21,20 +21,24 @@ export async function saveProject(_prev: FormState, formData: FormData): Promise
   const id = String(formData.get('id') ?? '') || null;
   const name = String(formData.get('name') ?? '').trim();
   const customer = String(formData.get('customer') ?? '').trim();
-  const pricingModel = String(formData.get('pricingModel') ?? '') as PricingModel;
-  const hourlyRate = toAmount(formData.get('hourlyRate'));
+  const kind = String(formData.get('kind') ?? 'client') as ProjectKind;
+  const isClient = kind === 'client';
+  // Interne og fraværsprojekter har ingen prismodel (#44); feltet gemmes som fast pris uden timepris
+  const pricingModel = (isClient ? String(formData.get('pricingModel') ?? '') : 'fixed') as PricingModel;
+  const hourlyRate = isClient ? toAmount(formData.get('hourlyRate')) : null;
 
   if (!name) return { error: 'Skriv projektets navn.' };
-  if (!customer) return { error: 'Skriv kundens navn.' };
-  if (pricingModel !== 'fixed' && pricingModel !== 'byTitle') return { error: 'Vælg en prismodel.' };
-  if (pricingModel === 'fixed' && (hourlyRate === null || !isValidAmount(hourlyRate))) {
+  if (!customer) return { error: isClient ? 'Skriv kundens navn.' : 'Skriv, hvem projektet hører til, fx Better Developers.' };
+  if (!['client', 'internal', 'absence'].includes(kind)) return { error: 'Vælg en projekttype.' };
+  if (isClient && pricingModel !== 'fixed' && pricingModel !== 'byTitle') return { error: 'Vælg en prismodel.' };
+  if (isClient && pricingModel === 'fixed' && (hourlyRate === null || !isValidAmount(hourlyRate))) {
     return { error: 'Et projekt med fast pris skal have en timepris i kr.' };
   }
 
   // Titelpriser: kun de udfyldte felter er aftalte priser. Tomme felter bruger titlens standardpris.
   const titles = await prisma.title.findMany({ select: { id: true, name: true } });
   const titleRates: { titleId: string; hourlyRate: number }[] = [];
-  if (pricingModel === 'byTitle') {
+  if (isClient && pricingModel === 'byTitle') {
     for (const title of titles) {
       const rate = toAmount(formData.get(`titleRate:${title.id}`));
       if (rate === null) continue;
@@ -43,7 +47,7 @@ export async function saveProject(_prev: FormState, formData: FormData): Promise
     }
   }
 
-  const data = { name, customer, pricingModel, hourlyRate: pricingModel === 'fixed' ? hourlyRate : null };
+  const data = { name, customer, kind, pricingModel, hourlyRate: isClient && pricingModel === 'fixed' ? hourlyRate : null };
   let createdId: string | null = null;
 
   if (id) {

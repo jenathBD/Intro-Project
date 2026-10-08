@@ -8,6 +8,7 @@ import type { PricingModel, Prisma, WorkPackageStatus } from '@/app/generated/pr
 import { FULL_TIME_HOURS } from '@/lib/capacity';
 import { prisma } from '@/lib/db';
 import { resolveHourlyRate } from '@/lib/pricing';
+import { ABSENCE_PROJECT_ID, INTERNAL_TIME_PROJECT_ID, SYSTEM_PROJECT_IDS } from '@/lib/system-projects';
 
 // ---------- Data ----------
 
@@ -187,11 +188,14 @@ const ALLOCATIONS: { employee: EmployeeKey; project: string; fte: number; from: 
   { employee: 'jonas', project: 'Lagerintegration', fte: 0.4, from: -2, to: 3 },
   { employee: 'jonas', project: 'Beboerportal', fte: 0.3, from: 0, to: 0 }, // overbooking: 1,3 i denne uge
   { employee: 'jonas', project: 'Beboerportal', fte: 0.6, from: 3, to: 8 },
+  { employee: 'jonas', project: 'Intern tid', fte: 0.4, from: 5, to: 8 }, // lavperiode: blå markering (#44)
   { employee: 'mette', project: 'Kundeportal', fte: 0.2, from: -2, to: 3 },
   { employee: 'mette', project: 'Booking-app', fte: 0.2, from: -2, to: 8 },
   { employee: 'mette', project: 'Beboerportal', fte: 0.4, from: -2, to: 8 },
   { employee: 'sara', project: 'Booking-app', fte: 0.4, from: -2, to: -1 }, // Sara er på 30 t = 0,8 FTE
   { employee: 'sara', project: 'Beboerportal', fte: 0.4, from: -2, to: 5 },
+  { employee: 'sara', project: 'Ferie', fte: 0.4, from: 2, to: 2 }, // to dages ferie: fuldt planlagt den uge (#44)
+  { employee: 'mette', project: 'Ferie', fte: 0.2, from: 1, to: 1 }, // én feriedag oven i 0,8 = fuldt planlagt
   { employee: 'ali', project: 'Kundeportal', fte: 0.2, from: -2, to: 0 },
   { employee: 'ali', project: 'Booking-app', fte: 0.4, from: -2, to: 8 },
   { employee: 'ali', project: 'Beboerportal', fte: 0.4, from: -2, to: 8 },
@@ -245,7 +249,8 @@ async function main() {
     prisma.projectTitleRate.deleteMany(),
     prisma.workPackage.deleteMany(),
     prisma.employee.deleteMany(),
-    prisma.project.deleteMany(),
+    // Referenceprojekterne "Intern tid" og "Ferie" fra migrationen bevares
+    prisma.project.deleteMany({ where: { id: { notIn: SYSTEM_PROJECT_IDS } } }),
     prisma.title.deleteMany(),
   ]);
 
@@ -365,6 +370,16 @@ async function main() {
     }
   }
 
+  // Referenceprojekterne (#44). upsert, så seed også virker, hvis de er blevet slettet.
+  const systemProjects = [
+    { id: INTERNAL_TIME_PROJECT_ID, name: 'Intern tid', kind: 'internal' as const },
+    { id: ABSENCE_PROJECT_ID, name: 'Ferie', kind: 'absence' as const },
+  ];
+  for (const { id, name, kind } of systemProjects) {
+    await prisma.project.upsert({ where: { id }, update: {}, create: { id, name, kind, customer: 'Better Developers' } });
+    projectIds.set(name, id);
+  }
+
   // Allokeringer i FTE pr. medarbejder, projekt og uge (#16)
   const thisMonday = mondayOf(today);
   const weeksFrom = (from: number, to: number) =>
@@ -392,6 +407,12 @@ async function main() {
       const projectId = activeProjects[(i + j) % activeProjects.length];
       for (const weekStart of weeksFrom(-2, lastWeek)) allocations.push({ employeeId, projectId, weekStart, fte });
     });
+    // Den første, der slutter efter uge 4, sættes på Intern tid bagefter (lavperiode, blå markering). De andre forbliver ledige.
+    if (i === 3) {
+      for (const weekStart of weeksFrom(5, 8)) {
+        allocations.push({ employeeId, projectId: INTERNAL_TIME_PROJECT_ID, weekStart, fte: Math.round(scale * 10) / 10 });
+      }
+    }
   });
 
   // 3. Endnu et bevidst eksempel på overbooking: den anden ekstra medarbejder (0,6 + 0,4) får 0,2 mere
@@ -415,7 +436,9 @@ async function main() {
     ]),
   );
   const withinPeriod = allocations.filter((a) => {
-    const period = periods.get(a.projectId)!;
+    const period = periods.get(a.projectId);
+    // Intern tid og Ferie har ingen periode og kan altid allokeres (#44)
+    if (!period) return true;
     const week = (a.weekStart as Date).getTime();
     return week >= period.first && week <= period.last;
   });

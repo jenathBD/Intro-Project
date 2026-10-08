@@ -106,6 +106,16 @@ enum PricingModel {
   byTitle
 }
 
+/// Projektets type (#44). Bestemmer, om det har prismodel, periode og vises i projektoversigten.
+enum ProjectKind {
+  /// Kundeprojekt: prismodel, kan allokeres i projektets periode
+  client
+  /// Intern tid, fx kompetenceudvikling eller lavperioder: ingen pris, kan altid allokeres
+  internal
+  /// Fravær, fx ferie og helligdage: ingen pris og ingen arbejdspakker, kan altid allokeres
+  absence
+}
+
 /// Stilling, fx "Seniorudvikler". Bestemmer timeprisen på projekter med titelpriser.
 model Title {
   id           String             @id @default(cuid())
@@ -125,6 +135,8 @@ model Project {
   id           String             @id @default(cuid())
   name         String
   customer     String
+  kind         ProjectKind        @default(client)
+  /// Bruges kun på kundeprojekter. Interne og fraværsprojekter koster 0 kr.
   pricingModel PricingModel       @default(fixed)
   /// Timepris i kr ved fast pris. Bruges ikke ved titelpriser.
   hourlyRate   Decimal?           @db.Decimal(10, 2)
