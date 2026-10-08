@@ -54,7 +54,13 @@
     font: inherit; font-size: var(--bd-fs-md); font-weight: 700; color: var(--bd-ink);
     background: none; border: 0; padding: 0; cursor: pointer; white-space: nowrap;
   }
-  .bd-group-toggle > span[aria-hidden] { width: 1em; color: var(--bd-muted); }
+  /* Fold-pil: 1em bred, så træ-linjen står under dens midte. Drejer 90° ned, når gruppen er foldet ud. */
+  .bd-chevron {
+    width: 1em; height: 1em; flex: none; color: var(--bd-muted);
+    transition: transform .15s var(--bd-ease);
+  }
+  .bd-group-toggle[aria-expanded="true"] > .bd-chevron { transform: rotate(90deg); }
+  .bd-group-toggle:hover > .bd-chevron { color: var(--bd-ink); }
   .bd-group-toggle .bd-meta { font-weight: 400; }
   /* Rækker under en gruppe: indrykket med en lodret træ-linje under fold-pilen.
      background-image og ikke border/box-shadow, fordi BD's røde stribe (data-sev) bruger box-shadow. */

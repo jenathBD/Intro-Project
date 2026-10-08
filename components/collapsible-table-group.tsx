@@ -2,6 +2,16 @@
 
 import { useState, type ReactNode } from 'react';
 
+// Fold-pilen peger mod højre og drejer ned, når gruppen er foldet ud. Drejningen styres af CSS ud fra
+// knappens aria-expanded, så pil og skærmlæser altid er enige.
+function Chevron() {
+  return (
+    <svg className="bd-chevron" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 // En gruppe i en tabel: overskriftsrække med fold-knap og rækkerne under. Hver gruppe er sin egen <tbody>.
 // headerCells og children renderes af serveren og sendes ind som færdige rækker/celler.
 // Bruges til kategorier på projektdetaljen, medarbejdere i ugegridet og projekter i allokeringsmødet.
@@ -30,7 +40,7 @@ export function CollapsibleTableGroup({
       <tr className="bd-group-row" data-sev={severity} onClick={() => setOpen(!open)}>
         <td>
           <button type="button" className="bd-group-toggle" aria-expanded={open}>
-            <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+            <Chevron />
             {label}
             {meta !== undefined && <span className="bd-meta">{meta}</span>}
           </button>
@@ -66,7 +76,7 @@ export function CollapsibleTableSubgroup({
       <tr className="bd-subgroup-row" data-sev={severity} onClick={() => setOpen(!open)}>
         <td className="bd-tree-child">
           <button type="button" className="bd-group-toggle" aria-expanded={open}>
-            <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+            <Chevron />
             {label}
             {meta !== undefined && <span className="bd-meta">{meta}</span>}
           </button>
