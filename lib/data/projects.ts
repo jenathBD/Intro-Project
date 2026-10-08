@@ -2,6 +2,7 @@ import 'server-only';
 
 import { Prisma, type ProjectKind, type WorkPackageStatus } from '@/app/generated/prisma/client';
 import { prisma } from '@/lib/db';
+import type { GithubPullRequest } from '@/lib/github-sync';
 import { requireSession } from '@/lib/session';
 
 /** Nøgletal, der kan summeres fra arbejdspakke til projekt */
@@ -36,6 +37,10 @@ export type WorkPackageRow = Figures & {
   endDate: Date | null;
   /** Issuets nummer i projektets repo (#50) */
   githubNumber: number | null;
+  /** Fra seneste hentning fra GitHub (#24) */
+  githubState: 'open' | 'closed' | null;
+  /** PR'er, der lukker issuet, fra seneste hentning (#24) */
+  pullRequests: GithubPullRequest[];
   /** Tidspunkt for den seneste resterende-opdatering. null, hvis der aldrig er givet en vurdering */
   remainingUpdatedAt: Date | null;
 };
@@ -98,6 +103,8 @@ function queryWorkPackages(filter: Prisma.Sql) {
       wp."startDate",
       wp."endDate",
       wp."githubNumber",
+      wp."githubState",
+      COALESCE(wp."githubPullRequests", '[]'::jsonb) AS "pullRequests",
       -- Uden estimat tæller pakken som 0 t i estimatet, men dens brugte tid tæller med i prognosen
       wp."estimateHours" IS NOT NULL AS estimated,
       COALESCE(wp."estimateHours", 0)::float8 AS "estimateHours",
@@ -206,6 +213,8 @@ export async function getProjectDetail(id: string) {
       pricingModel: true,
       hourlyRate: true,
       titleRates: { select: { titleId: true, hourlyRate: true } },
+      githubRepo: true,
+      githubSyncedAt: true,
       epics: { select: { id: true, name: true }, orderBy: { name: 'asc' } },
     },
   });

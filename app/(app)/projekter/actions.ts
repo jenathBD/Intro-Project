@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import type { PricingModel, ProjectKind } from '@/app/generated/prisma/client';
 import type { FormState } from '@/components/form-dialog';
 import { prisma } from '@/lib/db';
+import { parseGithubRepo } from '@/lib/github-sync';
 import { requireSession } from '@/lib/session';
 
 // Tillad både 1.100,5 og 1100.5: punktum som tusindtalsseparator fjernes, komma bliver decimaltegn
@@ -26,6 +27,9 @@ export async function saveProject(_prev: FormState, formData: FormData): Promise
   // Interne og fraværsprojekter har ingen prismodel (#44); feltet gemmes som fast pris uden timepris
   const pricingModel = (isClient ? String(formData.get('pricingModel') ?? '') : 'fixed') as PricingModel;
   const hourlyRate = isClient ? toAmount(formData.get('hourlyRate')) : null;
+  // Fravær har ingen arbejdspakker og dermed intet repo (#24)
+  const githubValue = kind === 'absence' ? '' : String(formData.get('githubRepo') ?? '').trim();
+  const githubRepo = githubValue ? parseGithubRepo(githubValue) : null;
 
   if (!name) return { error: 'Skriv projektets navn.' };
   if (!customer) return { error: isClient ? 'Skriv kundens navn.' : 'Skriv, hvem projektet hører til, fx Better Developers.' };
@@ -34,6 +38,8 @@ export async function saveProject(_prev: FormState, formData: FormData): Promise
   if (isClient && pricingModel === 'fixed' && (hourlyRate === null || !isValidAmount(hourlyRate))) {
     return { error: 'Et projekt med fast pris skal have en timepris i kr.' };
   }
+
+  if (githubValue && !githubRepo) return { error: 'GitHub-repoet skal skrives som owner/repo, fx jenathBD/Intro-Project.' };
 
   // Titelpriser: kun de udfyldte felter er aftalte priser. Tomme felter bruger titlens standardpris.
   const titles = await prisma.title.findMany({ select: { id: true, name: true } });
@@ -47,7 +53,7 @@ export async function saveProject(_prev: FormState, formData: FormData): Promise
     }
   }
 
-  const data = { name, customer, kind, pricingModel, hourlyRate: isClient && pricingModel === 'fixed' ? hourlyRate : null };
+  const data = { name, customer, kind, pricingModel, hourlyRate: isClient && pricingModel === 'fixed' ? hourlyRate : null, githubRepo };
   let createdId: string | null = null;
 
   if (id) {

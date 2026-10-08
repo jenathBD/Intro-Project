@@ -33,6 +33,8 @@ export type EmployeeRow = {
   weeklyCapacity: number;
   /** Kapacitet i FTE (37 t = 1,0) */
   capacityFte: number;
+  /** GitHub-brugernavn (#24) */
+  githubLogin: string | null;
 };
 
 // Medarbejderlisten (#18)
@@ -40,7 +42,7 @@ export async function getEmployees(): Promise<EmployeeRow[]> {
   await requireSession();
 
   const employees = await prisma.employee.findMany({
-    select: { id: true, name: true, weeklyCapacity: true, title: { select: { id: true, name: true } } },
+    select: { id: true, name: true, weeklyCapacity: true, githubLogin: true, title: { select: { id: true, name: true } } },
   });
 
   return employees
@@ -51,6 +53,7 @@ export async function getEmployees(): Promise<EmployeeRow[]> {
       titleName: e.title.name,
       weeklyCapacity: Number(e.weeklyCapacity),
       capacityFte: capacityFte(Number(e.weeklyCapacity)),
+      githubLogin: e.githubLogin,
     }))
     .sort(byName);
 }

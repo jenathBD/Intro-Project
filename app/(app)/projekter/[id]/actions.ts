@@ -6,6 +6,7 @@ import type { FormState } from '@/components/form-dialog';
 import { getRemainingHistory } from '@/lib/data/remaining';
 import { getTimeEntries } from '@/lib/data/time-entries';
 import { prisma } from '@/lib/db';
+import { type SyncResult, syncProjectFromGithub } from '@/lib/github';
 import { resolveHourlyRate } from '@/lib/pricing';
 import { NEW_CATEGORY, NEW_EPIC } from '@/lib/work-package';
 import { requireSession } from '@/lib/session';
@@ -226,4 +227,15 @@ export async function deleteWorkPackage(workPackageId: string): Promise<FormStat
   revalidatePath('/projekter');
   revalidatePath('/allokering');
   return { ok: true, message: `${workPackage.name} er slettet.` };
+}
+
+// Henter projektets issues fra GitHub (#24). syncProjectFromGithub kalder selv requireSession().
+export async function syncGithub(projectId: string): Promise<SyncResult> {
+  const result = await syncProjectFromGithub(projectId);
+  if (result.ok) {
+    revalidatePath(`/projekter/${projectId}`);
+    revalidatePath('/projekter');
+    revalidatePath('/allokering/moede');
+  }
+  return result;
 }

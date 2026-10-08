@@ -72,6 +72,22 @@ export function ProjectFormButton({ project, titles }: { project?: ProjectForEdi
         </div>
       </div>
 
+      {kind !== 'absence' && (
+        <div className="bd-field">
+          <label className="bd-label" htmlFor={`${id}-github`}>GitHub-repo</label>
+          <input
+            id={`${id}-github`}
+            name="githubRepo"
+            className="bd-input"
+            defaultValue={project?.githubRepo ?? ''}
+            placeholder="owner/repo"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <span className="bd-hint">Valgfri. Fx jenathBD/Intro-Project eller adressen på repoet. Issues hentes ind som arbejdspakker.</span>
+        </div>
+      )}
+
       {kind === 'client' && (
       <>
       <fieldset className="bd-field m-0 border-0 p-0">

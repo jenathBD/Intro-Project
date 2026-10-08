@@ -132,24 +132,26 @@ model Title {
 }
 
 model Project {
-  id           String             @id @default(cuid())
-  name         String
-  customer     String
-  kind         ProjectKind        @default(client)
+  id             String             @id @default(cuid())
+  name           String
+  customer       String
+  kind           ProjectKind        @default(client)
   /// Bruges kun på kundeprojekter. Interne og fraværsprojekter koster 0 kr.
-  pricingModel PricingModel       @default(fixed)
+  pricingModel   PricingModel       @default(fixed)
   /// Timepris i kr ved fast pris. Bruges ikke ved titelpriser.
-  hourlyRate   Decimal?           @db.Decimal(10, 2)
+  hourlyRate     Decimal?           @db.Decimal(10, 2)
   /// Sat, når projektet er arkiveret (#14). null = aktivt.
-  archivedAt   DateTime?
+  archivedAt     DateTime?
   /// GitHub-repo som "owner/name" (#50). Arbejdspakkernes issues og epics ligger her.
-  githubRepo   String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  workPackages WorkPackage[]
-  epics        Epic[]
-  titleRates   ProjectTitleRate[]
-  allocations  Allocation[]
+  githubRepo     String?
+  /// Seneste hentning fra GitHub (#24). null = aldrig hentet.
+  githubSyncedAt DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  workPackages   WorkPackage[]
+  epics          Epic[]
+  titleRates     ProjectTitleRate[]
+  allocations    Allocation[]
 
   @@map("project")
 }
@@ -211,36 +213,38 @@ model Epic {
 /// En arbejdspakke svarer til ét GitHub-issue, når projektet har et repo (#50).
 /// Estimat, ansvarlig og datoer er valgfrie, fordi alle issues hentes ind, så der kan registreres tid på dem.
 model WorkPackage {
-  id               String              @id @default(cuid())
-  projectId        String
-  project          Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  name             String
-  description      String?
+  id                 String              @id @default(cuid())
+  projectId          String
+  project            Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  name               String
+  description        String?
   /// Én kategori pr. pakke, så opgørelser pr. kategori summerer til projektets total
-  categoryId       String
-  category         WorkPackageCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId         String
+  category           WorkPackageCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   /// Valgfri. Pakker som fx management hører ikke til et epic.
-  epicId           String?
-  epic             Epic?               @relation(fields: [epicId], references: [id], onDelete: SetNull)
+  epicId             String?
+  epic               Epic?               @relation(fields: [epicId], references: [id], onDelete: SetNull)
   /// Den ene medarbejder, der er ansvarlig for arbejdspakken
-  responsibleId    String?
-  responsible      Employee?           @relation("WorkPackageResponsible", fields: [responsibleId], references: [id], onDelete: Restrict)
-  status           WorkPackageStatus   @default(notStarted)
+  responsibleId      String?
+  responsible        Employee?           @relation("WorkPackageResponsible", fields: [responsibleId], references: [id], onDelete: Restrict)
+  status             WorkPackageStatus   @default(notStarted)
   /// null = ikke estimeret. Tæller ikke med i estimatet, men tid på pakken tæller med i brugt og prognose.
-  estimateHours    Decimal?            @db.Decimal(7, 2)
-  startDate        DateTime?           @db.Date
+  estimateHours      Decimal?            @db.Decimal(7, 2)
+  startDate          DateTime?           @db.Date
   /// Deadline i bemandingstjekket (#45). Pakker uden slutdato indgår ikke.
-  endDate          DateTime?           @db.Date
+  endDate            DateTime?           @db.Date
   /// Issuets nummer i projektets repo. null = pakken har intet issue.
-  githubNumber     Int?
+  githubNumber       Int?
   /// Fra seneste sync (#24): "open" eller "closed"
-  githubState      String?
-  githubSyncedAt   DateTime?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  timeEntries      TimeEntry[]
+  githubState        String?
+  /// Fra seneste sync (#24): PR'er, der lukker issuet, som [{ number, title, state, url }]. state: open | closed | merged.
+  githubPullRequests Json?
+  githubSyncedAt     DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  timeEntries        TimeEntry[]
   /// Resterende er altid den seneste opdatering (#13). Gemmes ikke på arbejdspakken.
-  remainingUpdates RemainingUpdate[]
+  remainingUpdates   RemainingUpdate[]
 
   @@unique([projectId, githubNumber])
   @@index([projectId])
