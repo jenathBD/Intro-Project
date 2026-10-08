@@ -3,8 +3,11 @@
 import { useActionState, useEffect, useId, useState, type ReactNode } from 'react';
 import { Dialog } from '@/components/dialog';
 
-/** Svar fra en Server Action, der gemmer en formular */
-export type FormState = { ok?: boolean; error?: string; message?: string };
+/**
+ * Svar fra en Server Action, der gemmer en formular.
+ * warning: gemt, men noget ved siden af lykkedes ikke (fx GitHub, #51). Vises i toasten med et advarselsmærke.
+ */
+export type FormState = { ok?: boolean; error?: string; message?: string; warning?: string };
 export type FormAction = (prev: FormState, formData: FormData) => Promise<FormState>;
 
 // Knap, der åbner en dialog med en formular. Efter gem lukkes dialogen, og der vises en toast.
@@ -34,13 +37,14 @@ export function FormDialogButton({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; warning?: string } | null>(null);
   const headingId = useId();
 
-  function showToast(message: string) {
+  function showToast(message: string, warning?: string) {
     setOpen(false);
-    setToast(message);
-    setTimeout(() => setToast(null), 4000);
+    setToast({ message, warning });
+    // En advarsel skal kunne nås at læse
+    setTimeout(() => setToast(null), warning ? 10000 : 4000);
   }
 
   return (
@@ -65,7 +69,13 @@ export function FormDialogButton({
       </Dialog>
       {toast && (
         <div className="bd-toast-region" role="status">
-          <div className="bd-toast">{toast}</div>
+          <div className="bd-toast">
+            {toast.warning && <span className="bd-badge bd-badge--warn">Advarsel</span>}
+            <span>
+              {toast.message}
+              {toast.warning && ` ${toast.warning}`}
+            </span>
+          </div>
         </div>
       )}
     </>
@@ -83,7 +93,7 @@ function DialogForm({
   action: FormAction;
   submitLabel: string;
   onCancel: () => void;
-  onSaved: (message: string) => void;
+  onSaved: (message: string, warning?: string) => void;
   footer?: ReactNode;
   children: ReactNode;
 }) {
@@ -91,7 +101,7 @@ function DialogForm({
 
   // Luk dialogen, når serveren har gemt. Kun state som afhængighed: onSaved er en ny funktion ved hver rendering.
   useEffect(() => {
-    if (state.ok && state.message) onSaved(state.message);
+    if (state.ok && state.message) onSaved(state.message, state.warning);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 

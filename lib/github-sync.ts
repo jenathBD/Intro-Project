@@ -144,3 +144,46 @@ export function parseGithubRepo(value: string): string | null {
     .match(/^([A-Za-z0-9-]+)\/([A-Za-z0-9._-]+)$/);
   return match ? `${match[1]}/${match[2]}` : null;
 }
+
+// ---------------------------------------------------------------------------
+// Skrivning til GitHub (#51): dashboardet er kilden til kategori og epic.
+// ---------------------------------------------------------------------------
+
+export const categoryLabel = (categoryName: string) => `${CATEGORY_LABEL_PREFIX} ${categoryName}`;
+
+export type IssueChanges = {
+  addLabels: string[];
+  removeLabels: string[];
+  /** Ny forælder (epic), eller fjern den nuværende. null = ingen ændring. */
+  parent: { set: number } | { remove: number } | null;
+};
+
+/**
+ * @param current issuets labels og forælder på GitHub
+ * @param categoryName pakkens kategori i dashboardet
+ * @param epicNumber issuenummeret på pakkens epic. null = intet epic, eller et epic uden issue
+ * @param projectEpicNumbers projektets epics med issue. Kun dem fjernes som forælder, så en forælder,
+ *   dashboardet ikke kender, får lov at blive.
+ */
+export function planIssueChanges(
+  current: { labels: string[]; parentNumber: number | null },
+  categoryName: string,
+  epicNumber: number | null,
+  projectEpicNumbers: Set<number>,
+): IssueChanges {
+  const wanted = categoryLabel(categoryName);
+  const isCategoryLabel = (label: string) => label.toLowerCase().startsWith(CATEGORY_LABEL_PREFIX);
+  const hasWanted = current.labels.some((label) => label.toLowerCase() === wanted.toLowerCase());
+
+  let parent: IssueChanges['parent'] = null;
+  if (epicNumber !== null && current.parentNumber !== epicNumber) parent = { set: epicNumber };
+  else if (epicNumber === null && current.parentNumber !== null && projectEpicNumbers.has(current.parentNumber)) {
+    parent = { remove: current.parentNumber };
+  }
+
+  return {
+    addLabels: hasWanted ? [] : [wanted],
+    removeLabels: current.labels.filter((label) => isCategoryLabel(label) && label.toLowerCase() !== wanted.toLowerCase()),
+    parent,
+  };
+}
