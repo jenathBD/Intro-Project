@@ -101,6 +101,17 @@
   .bd-table.bd-table--fixed td:not(:first-child) { text-align: center; }
   .bd-table--fixed .bd-input.bd-input--cell { text-align: center; }
 
+  /* Allokering (#44): intern tid er planlagt, men fremhæves med BD's info-flade; fravær er kursiv og dæmpet */
+  /* Grupperækkerne har deres egen baggrund (.bd-table .bd-group-row td), og den selektor er mere specifik
+     end en enkelt klasse. Derfor gentages vejen her, ellers vinder den grå baggrund over den blå. */
+  .bd-cell-internal,
+  .bd-table .bd-group-row td.bd-cell-internal { background: var(--bd-info-soft); }
+  .bd-table tr.bd-row-absence td { font-style: italic; color: var(--bd-muted); }
+
+  /* Felter side om side: label, felt og hjælpetekst lægger sig fra toppen. Uden dette strækker .bd-field (et grid)
+     sine rækker, når nabofeltet er højere (fx har en hjælpetekst), og feltet ender lavere og højere end naboen. */
+  .bd-field { align-content: start; }
+
   /* Redigerbare celler i tabeller (fx FTE i ugegridet, #17): smalle, højrestillede felter */
   .bd-input.bd-input--cell {
     width: 4.5rem; padding: 4px var(--bd-s2); text-align: right; font-variant-numeric: tabular-nums;

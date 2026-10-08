@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { canAllocate } from '@/lib/allocation';
 import { getAllocatableProjects } from '@/lib/data/allocations';
 import { prisma } from '@/lib/db';
 import { requireSession } from '@/lib/session';
@@ -33,7 +34,7 @@ export async function setAllocation(input: {
   ]);
   const project = projects.find((p) => p.id === input.projectId);
   if (!employee || !project) return { ok: false, error: 'Medarbejderen eller projektet findes ikke længere. Genindlæs siden.' };
-  if (weekStart < project.firstWeek || weekStart > project.lastWeek) {
+  if (!canAllocate(project, weekStart)) {
     return { ok: false, error: `${project.name} kører ikke i den uge, så der kan ikke allokeres.` };
   }
 

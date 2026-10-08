@@ -37,6 +37,8 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
   const { project, categories, totals } = detail;
   const over = isOverBudget(totals);
   const canRegister = !project.archivedAt;
+  // Fravær (fx Ferie) har ingen arbejdspakker; det lægges ind i allokeringen (#44)
+  const canAddPackages = canRegister && project.kind !== 'absence';
 
   return (
     <>
@@ -56,7 +58,12 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
 
       <div className="bd-stats">
         <Stat label="Estimat" value={formatHours(totals.estimateHours)} unit="t" />
-        <Stat label="Brugt" value={formatHours(totals.spentHours)} unit="t" note={formatKr(totals.spentCost)} />
+        <Stat
+          label="Brugt"
+          value={formatHours(totals.spentHours)}
+          unit="t"
+          note={project.kind === 'client' ? formatKr(totals.spentCost) : undefined}
+        />
         <Stat label="Resterende" value={formatHours(totals.remainingHours)} unit="t" />
         <Stat
           label="Prognose"
@@ -67,7 +74,7 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
         />
       </div>
 
-      {canRegister && (
+      {canAddPackages && (
         <div className="flex justify-end">
           <WorkPackageFormButton projectId={project.id} categories={categoryOptions} employees={employees} />
         </div>
@@ -75,8 +82,12 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
 
       {categories.length === 0 ? (
         <div className="bd-empty">
-          <strong>Ingen arbejdspakker endnu</strong>
-          {canRegister ? 'Tilføj den første med "Tilføj arbejdspakke".' : 'Projektet er arkiveret.'}
+          <strong>{project.kind === 'absence' ? 'Fravær har ingen arbejdspakker' : 'Ingen arbejdspakker endnu'}</strong>
+          {project.kind === 'absence'
+            ? 'Fravær lægges ind i allokeringen: 1 dag = 0,2 FTE.'
+            : canRegister
+              ? 'Tilføj den første med "Tilføj arbejdspakke".'
+              : 'Projektet er arkiveret.'}
         </div>
       ) : (
         <div className="bd-table-wrap">
@@ -97,6 +108,8 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
                 label={category.categoryName}
                 meta={category.workPackages.length}
                 severity={isOverBudget(category.totals) ? 'blocker' : undefined}
+                // Foldet sammen fra start: man ser kategoriernes subtotaler og folder ud efter behov
+                defaultOpen={false}
                 headerCells={
                   <>
                     <td><WorkPackageStatusBadge status={category.status} /></td>
