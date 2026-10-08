@@ -65,6 +65,18 @@
     background-position: calc(var(--bd-s4) + 0.5em) 0;
     background-repeat: no-repeat;
   }
+  /* Undergruppe i en gruppe, fx et epic i en kategori (#50): et niveau inde, halvfed og uden egen baggrund,
+     så den læses som underordnet grupperækken, men stadig over pakkerne. */
+  .bd-table .bd-subgroup-row { cursor: pointer; }
+  .bd-table .bd-subgroup-row td { font-weight: 600; }
+  .bd-table .bd-subgroup-row .bd-group-toggle { font-size: var(--bd-fs-sm); font-weight: 600; }
+  /* Rækker under en undergruppe: to niveauer inde med to træ-linjer, den anden under undergruppens fold-pil */
+  .bd-table td.bd-tree-child--2 {
+    padding-left: calc(var(--bd-s4) + 2 * var(--bd-s6));
+    background-image: linear-gradient(var(--bd-line), var(--bd-line)), linear-gradient(var(--bd-line), var(--bd-line));
+    background-size: 1px 100%, 1px 100%;
+    background-position: calc(var(--bd-s4) + 0.5em) 0, calc(var(--bd-s4) + var(--bd-s6) + 0.5em) 0;
+  }
 
   /* Dialog (fx "Registrér tid"): BD's radius for dialoger og pop-skygge */
   .bd-dialog {

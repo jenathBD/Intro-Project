@@ -40,12 +40,24 @@ export type WorkPackageRow = Figures & {
   remainingUpdatedAt: Date | null;
 };
 
-/** Arbejdspakkerne i én kategori eller ét epic med subtotal og udledt status */
-export type WorkPackageGroup = {
-  key: string;
-  label: string;
+/** Arbejdspakkerne i ét epic inden for en kategori, med subtotal og udledt status */
+export type EpicGroup = {
+  id: string;
+  name: string;
   status: WorkPackageStatus;
   workPackages: WorkPackageRow[];
+  totals: Figures;
+};
+
+/** En kategori med dens epics og pakkerne uden epic (#50). Totalerne dækker alle pakkerne i kategorien. */
+export type CategoryGroup = {
+  id: string;
+  name: string;
+  status: WorkPackageStatus;
+  epics: EpicGroup[];
+  /** Pakker uden epic, fx projektledelse */
+  withoutEpic: WorkPackageRow[];
+  workPackageCount: number;
   totals: Figures;
 };
 
@@ -139,26 +151,33 @@ export async function getProjectOverview({ archived = false } = {}): Promise<Pro
   }));
 }
 
-/** Pakker uden epic samles i en gruppe til sidst */
-export const NO_EPIC_LABEL = 'Uden epic';
+// Samler rækker i grupper efter en nøgle. Rækkerne er sorteret efter startdato, så grupperne kommer
+// i den rækkefølge, deres første pakke starter (typisk Analyse og Design før Udvikling).
+function groupRows(rows: WorkPackageRow[], key: (wp: WorkPackageRow) => string) {
+  const groups = new Map<string, WorkPackageRow[]>();
+  for (const wp of rows) groups.set(key(wp), [...(groups.get(key(wp)) ?? []), wp]);
+  return [...groups.values()];
+}
 
-// Grupperer arbejdspakker pr. kategori eller epic. Rækkerne er sorteret efter startdato, så grupperne
-// kommer i den rækkefølge, deres første pakke starter (typisk Analyse og Design før Udvikling).
-function groupBy(workPackages: WorkPackageRow[], by: 'category' | 'epic'): WorkPackageGroup[] {
-  const groups = new Map<string, { label: string; rows: WorkPackageRow[] }>();
-  for (const wp of workPackages) {
-    const [key, label] = by === 'category' ? [wp.categoryId, wp.categoryName] : [wp.epicId ?? '', wp.epicName ?? NO_EPIC_LABEL];
-    const group = groups.get(key) ?? { label, rows: [] };
-    group.rows.push(wp);
-    groups.set(key, group);
-  }
-  // "Uden epic" (nøglen '') står sidst
-  const sorted = [...groups].sort(([a], [b]) => Number(a === '') - Number(b === ''));
-  return sorted.map(([key, { label, rows }]) => ({
-    key,
-    label,
+// Kategori → epic → arbejdspakke (#50). Et epic kan gå på tværs af kategorier (fx udvikling og test af
+// samme app) og står så under hver kategori med de pakker, der hører til den.
+function groupByCategoryAndEpic(workPackages: WorkPackageRow[]): CategoryGroup[] {
+  return groupRows(workPackages, (wp) => wp.categoryId).map((rows) => ({
+    id: rows[0].categoryId,
+    name: rows[0].categoryName,
     status: groupStatus(rows.map((wp) => wp.status)),
-    workPackages: rows,
+    epics: groupRows(
+      rows.filter((wp) => wp.epicId),
+      (wp) => wp.epicId!,
+    ).map((epicRows) => ({
+      id: epicRows[0].epicId!,
+      name: epicRows[0].epicName!,
+      status: groupStatus(epicRows.map((wp) => wp.status)),
+      workPackages: epicRows,
+      totals: sumFigures(epicRows),
+    })),
+    withoutEpic: rows.filter((wp) => !wp.epicId),
+    workPackageCount: rows.length,
     totals: sumFigures(rows),
   }));
 }
@@ -172,7 +191,7 @@ function groupStatus(statuses: WorkPackageStatus[]): WorkPackageStatus {
   return 'inProgress';
 }
 
-// Ét projekt med arbejdspakker grupperet pr. kategori (#12) og pr. epic (#50). null, hvis id'et ikke findes.
+// Ét projekt med arbejdspakker grupperet pr. kategori (#12) og derunder pr. epic (#50). null, hvis id'et ikke findes.
 export async function getProjectDetail(id: string) {
   await requireSession();
 
@@ -205,8 +224,7 @@ export async function getProjectDetail(id: string) {
   return {
     project,
     workPackageCount: workPackages.length,
-    byCategory: groupBy(workPackages, 'category'),
-    byEpic: groupBy(workPackages, 'epic'),
+    categories: groupByCategoryAndEpic(workPackages),
     totals: sumFigures(workPackages),
   };
 }
