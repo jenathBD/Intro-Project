@@ -14,3 +14,15 @@ const shortDateFormat = new Intl.DateTimeFormat('da-DK', { day: 'numeric', month
 
 /** Fx "7. okt." (BD: datoer i løbende tekst) */
 export const formatShortDate = (date: Date) => shortDateFormat.format(date);
+
+// Tidspunkter (fx createdAt) vises i brugerens tidszone, så brug kun denne i Client Components
+const dateTimeFormat = new Intl.DateTimeFormat('da-DK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+/** Fx "7. okt. 14.32" */
+export const formatDateTime = (date: Date) => dateTimeFormat.format(date);
+
+/** "i dag", "i går" eller "for 12 dage siden" */
+export function formatDaysAgo(date: Date, now = new Date()) {
+  const days = Math.floor((now.getTime() - date.getTime()) / (24 * 60 * 60 * 1000));
+  return days <= 0 ? 'i dag' : days === 1 ? 'i går' : `for ${days} dage siden`;
+}
