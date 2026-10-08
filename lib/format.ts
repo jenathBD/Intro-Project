@@ -9,6 +9,11 @@ export const formatSignedHours = (hours: number) => (hours > 0 ? '+' : '') + hou
 
 export const formatKr = (amount: number) => krFormat.format(amount);
 
+// FTE altid med én decimal: 0,6 og 1,0
+const fteFormat = new Intl.NumberFormat('da-DK', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+export const formatFte = (fte: number) => fteFormat.format(fte);
+
 // timeZone UTC: datoer fra @db.Date er midnat UTC. I dansk tid ville de ellers kunne blive vist som dagen før.
 const shortDateFormat = new Intl.DateTimeFormat('da-DK', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 

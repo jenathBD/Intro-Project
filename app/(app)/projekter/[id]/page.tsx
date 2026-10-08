@@ -75,8 +75,8 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
               <CollapsibleTableGroup
                 key={category.categoryName}
                 label={category.categoryName}
-                count={category.workPackages.length}
-                overBudget={isOverBudget(category.totals)}
+                meta={category.workPackages.length}
+                severity={isOverBudget(category.totals) ? 'blocker' : undefined}
                 headerCells={
                   <>
                     <td><WorkPackageStatusBadge status={category.status} /></td>

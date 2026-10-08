@@ -16,6 +16,7 @@ Tema: lys + mørk
 - Projektets egen CSS, der bygger videre på BD-komponenter, står i `app/globals.css` i en `@layer components`-blok. `bd-base.css` holdes uændret. Brug kun `var(--bd-…)` og BD's mobilgrænse på 760px, ikke Tailwinds `md:`.
 - Dialoger: brug altid `components/dialog.tsx`. Den renderer dialogen i `<body>` med en portal, så den ikke arver stil fra det sted, knappen står (fx højrestilling og røde striber, når knappen står i en tabelcelle). Native `<dialog>` med `.bd-dialog` (radius `--bd-r-lg`, `--bd-shadow-pop`). Højst én primær knap; "Annullér" er ghost. Bekræftelse efter gem vises som `.bd-toast` nederst til højre (`.bd-toast-region`, `role="status"`).
 - Tal over grænsen i tabeller (fx brugt over estimat, afvigelse over 0): rødt og fedt (`--bd-danger`), uden mærke og uden tooltip. Forklaringen står som `sr-only`-tekst til skærmlæsere. Brugt over estimat: `td.bd-over-estimate`.
+- Allokering: overbooket (over 1,0 FTE) er rødt og fedt med rød stribe på medarbejderrækken (`data-sev="blocker"`). Ledig tid (under 0,8 FTE, også 0,0) er orange og fedt (`--bd-warn`) med orange stribe (`data-sev="major"`). Rød vinder over orange.
 - Tal, der kan klikkes for detaljer (fx "Brugt" → tidsregistreringer), er `.bd-link-button`: accentfarve med prikket understregning, der bliver fuld ved hover. Detaljerne vises i `.bd-dialog--wide`.
 - Rækkehandlinger i tabeller (fx "Registrér tid") er `.bd-btn--secondary .bd-btn--sm` i sidste kolonne.
 - Tabeller med totaler: total-rækken står i `<tfoot>` og får en kraftigere linje over og fed tekst.

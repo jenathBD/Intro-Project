@@ -134,6 +134,7 @@ model Project {
   updatedAt    DateTime           @updatedAt
   workPackages WorkPackage[]
   titleRates   ProjectTitleRate[]
+  allocations  Allocation[]
 
   @@map("project")
 }
@@ -193,7 +194,6 @@ model WorkPackage {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   timeEntries      TimeEntry[]
-  allocations      Allocation[]
   /// Resterende er altid den seneste opdatering (#13). Gemmes ikke på arbejdspakken.
   remainingUpdates RemainingUpdate[]
 
@@ -251,20 +251,22 @@ model TimeEntry {
   @@map("time_entry")
 }
 
-/// Planlagte timer for en medarbejder på en arbejdspakke i en given uge (#16, #17).
+/// Andel af en medarbejders tid på et projekt i en given uge (#16, #17).
+/// Måles i FTE: hver medarbejder har 1,0 pr. uge at fordele på tværs af projekterne. Over 1,0 = overbooket.
 model Allocation {
-  id            String      @id @default(cuid())
-  employeeId    String
-  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  workPackageId String
-  workPackage   WorkPackage @relation(fields: [workPackageId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   /// Mandag i den uge, allokeringen gælder.
-  weekStart     DateTime    @db.Date
-  hours         Decimal     @db.Decimal(5, 2)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  weekStart  DateTime @db.Date
+  /// Andel af ugen, i trin af 0,1. 1,0 = hele medarbejderens arbejdstid (weeklyCapacity).
+  fte        Decimal  @db.Decimal(3, 1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  @@unique([employeeId, workPackageId, weekStart])
+  @@unique([employeeId, projectId, weekStart])
   @@index([weekStart])
   @@map("allocation")
 }
