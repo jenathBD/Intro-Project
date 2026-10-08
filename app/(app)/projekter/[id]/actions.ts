@@ -1,10 +1,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import type { WorkPackageStatus } from '@/app/generated/prisma/client';
+import type { FormState } from '@/components/form-dialog';
 import { getRemainingHistory } from '@/lib/data/remaining';
 import { getTimeEntries } from '@/lib/data/time-entries';
 import { prisma } from '@/lib/db';
 import { resolveHourlyRate } from '@/lib/pricing';
+import { NEW_CATEGORY } from '@/lib/work-package';
 import { requireSession } from '@/lib/session';
 
 export type RegisterTimeState = { ok?: boolean; error?: string; message?: string };
@@ -104,4 +107,102 @@ export async function updateRemaining(_prev: UpdateRemainingState, formData: For
 // Henter historikken, når dialogen åbnes. getRemainingHistory kalder selv requireSession().
 export async function loadRemainingHistory(workPackageId: string) {
   return getRemainingHistory(workPackageId);
+}
+
+const STATUSES: WorkPackageStatus[] = ['notStarted', 'inProgress', 'onHold', 'done'];
+
+// Opretter eller redigerer en arbejdspakke (#14). Med id redigeres, uden oprettes.
+export async function saveWorkPackage(_prev: FormState, formData: FormData): Promise<FormState> {
+  const session = await requireSession();
+
+  const id = String(formData.get('id') ?? '') || null;
+  const projectId = String(formData.get('projectId') ?? '');
+  const name = String(formData.get('name') ?? '').trim();
+  const description = String(formData.get('description') ?? '').trim() || null;
+  const categoryValue = String(formData.get('categoryId') ?? '');
+  const newCategory = String(formData.get('newCategory') ?? '').trim();
+  const responsibleId = String(formData.get('responsibleId') ?? '');
+  const status = String(formData.get('status') ?? '') as WorkPackageStatus;
+  const estimateHours = Number(String(formData.get('estimateHours') ?? '').replace(',', '.'));
+  const startValue = String(formData.get('startDate') ?? '');
+  const endValue = String(formData.get('endDate') ?? '');
+
+  // Validering: fejlbeskeder siger, hvad der er galt (BD-styleguide)
+  if (!name) return { error: 'Skriv arbejdspakkens navn.' };
+  if (!categoryValue) return { error: 'Vælg en kategori.' };
+  if (categoryValue === NEW_CATEGORY && !newCategory) return { error: 'Skriv navnet på den nye kategori.' };
+  if (!responsibleId) return { error: 'Vælg den ansvarlige.' };
+  if (!STATUSES.includes(status)) return { error: 'Vælg en status.' };
+  if (!Number.isFinite(estimateHours) || estimateHours < 0.25 || estimateHours > 99999) {
+    return { error: 'Estimatet skal være mindst 0,25 timer.' };
+  }
+  if (Math.round(estimateHours * 4) !== estimateHours * 4) return { error: 'Estimatet angives i kvarter, fx 40 eller 12,5.' };
+  // "YYYY-MM-DD" fortolkes som midnat UTC, som @db.Date forventer
+  const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+  if (!isDate(startValue) || !isDate(endValue)) return { error: 'Vælg både start- og slutdato.' };
+  const startDate = new Date(startValue);
+  const endDate = new Date(endValue);
+  if (endDate < startDate) return { error: 'Slutdatoen kan ikke ligge før startdatoen.' };
+
+  const [project, responsible, category] = await Promise.all([
+    prisma.project.findUnique({ where: { id: projectId }, select: { archivedAt: true } }),
+    prisma.employee.findUnique({ where: { id: responsibleId }, select: { id: true } }),
+    categoryValue === NEW_CATEGORY
+      ? null
+      : prisma.workPackageCategory.findUnique({ where: { id: categoryValue }, select: { id: true } }),
+  ]);
+  if (!project) return { error: 'Projektet findes ikke længere. Genindlæs siden.' };
+  if (project.archivedAt) return { error: 'Projektet er arkiveret. Genaktivér det for at ændre arbejdspakker.' };
+  if (!responsible) return { error: 'Den ansvarlige findes ikke længere. Genindlæs siden.' };
+  if (categoryValue !== NEW_CATEGORY && !category) return { error: 'Kategorien findes ikke længere. Genindlæs siden.' };
+
+  // Ny kategori: upsert på det unikke navn, så to, der opretter "Drift" samtidig, får den samme
+  const categoryId =
+    categoryValue === NEW_CATEGORY
+      ? (await prisma.workPackageCategory.upsert({ where: { name: newCategory }, update: {}, create: { name: newCategory } })).id
+      : categoryValue;
+
+  const data = { name, description, categoryId, responsibleId, status, estimateHours, startDate, endDate };
+
+  if (id) {
+    const updated = await prisma.workPackage.updateMany({ where: { id, projectId }, data });
+    if (updated.count === 0) return { error: 'Arbejdspakken findes ikke længere. Genindlæs siden.' };
+  } else {
+    // En ny pakke får sin første vurdering af resterende = estimatet. Ellers ville prognosen vise den som færdig.
+    await prisma.workPackage.create({
+      data: {
+        ...data,
+        projectId,
+        remainingUpdates: { create: { remainingHours: estimateHours, comment: 'Estimat ved oprettelse', userId: session.user.id } },
+      },
+    });
+  }
+
+  revalidatePath(`/projekter/${projectId}`);
+  revalidatePath('/projekter');
+  // Pakkernes datoer bestemmer, hvilke uger projektet kan allokeres i
+  revalidatePath('/allokering');
+  return { ok: true, message: id ? `${name} er opdateret.` : `${name} er oprettet.` };
+}
+
+// Sletter en arbejdspakke (#14). Registreret tid må ikke forsvinde, så pakker med tid kan ikke slettes.
+export async function deleteWorkPackage(workPackageId: string): Promise<FormState> {
+  await requireSession();
+
+  const workPackage = await prisma.workPackage.findUnique({
+    where: { id: workPackageId },
+    select: { name: true, projectId: true, _count: { select: { timeEntries: true } } },
+  });
+  if (!workPackage) return { error: 'Arbejdspakken findes ikke længere. Genindlæs siden.' };
+  if (workPackage._count.timeEntries > 0) {
+    return { error: `${workPackage.name} har registreret tid og kan ikke slettes. Sæt status til Afsluttet i stedet.` };
+  }
+
+  // Resterende-historikken slettes med (onDelete: Cascade)
+  await prisma.workPackage.delete({ where: { id: workPackageId } });
+
+  revalidatePath(`/projekter/${workPackage.projectId}`);
+  revalidatePath('/projekter');
+  revalidatePath('/allokering');
+  return { ok: true, message: `${workPackage.name} er slettet.` };
 }

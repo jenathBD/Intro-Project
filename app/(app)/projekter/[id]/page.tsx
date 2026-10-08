@@ -5,12 +5,15 @@ import { FigureCells, FigureHeaderCells, isOverBudget } from '@/components/figur
 import { PageHeader } from '@/components/page-header';
 import { Stat } from '@/components/stat';
 import { WorkPackageStatusBadge } from '@/components/work-package-status';
-import { getEmployeeOptions } from '@/lib/data/employees';
+import { getCategories } from '@/lib/data/categories';
+import { getEmployeeOptions, getTitles } from '@/lib/data/employees';
 import { type Figures, getProjectDetail } from '@/lib/data/projects';
 import { formatHours, formatKr, formatShortDate } from '@/lib/format';
+import { ArchiveProjectButton, ProjectFormButton } from '../project-form';
 import { RegisterTimeButton } from './register-time';
 import { RemainingButton } from './remaining';
 import { SpentHoursButton } from './time-entries';
+import { WorkPackageFormButton } from './work-package-form';
 
 // Konklusionen i én sætning (BD: overskrift og lede siger konklusionen, ikke emnet)
 function conclusion(totals: Figures) {
@@ -22,8 +25,13 @@ function conclusion(totals: Figures) {
 
 export default async function ProjectPage({ params }: PageProps<'/projekter/[id]'>) {
   const { id } = await params;
-  // Hentes samtidig: projektet og listen over medarbejdere til "Registrér tid"
-  const [detail, { employees, currentEmployeeId }] = await Promise.all([getProjectDetail(id), getEmployeeOptions()]);
+  // Hentes samtidig: projektet, medarbejdere til "Registrér tid" og titler til redigering af prismodellen
+  const [detail, { employees, currentEmployeeId }, titles, categoryOptions] = await Promise.all([
+    getProjectDetail(id),
+    getEmployeeOptions(),
+    getTitles(),
+    getCategories(),
+  ]);
   // Ukendt id: vis not-found.tsx i stedet for en tom side
   if (!detail) notFound();
   const { project, categories, totals } = detail;
@@ -33,7 +41,13 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
   return (
     <>
       <Link href="/projekter" className="bd-meta">← Alle projekter</Link>
-      <PageHeader eyebrow={project.customer} title={project.name} lede={conclusion(totals)} />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader eyebrow={project.customer} title={project.name} lede={conclusion(totals)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ArchiveProjectButton projectId={project.id} archived={Boolean(project.archivedAt)} />
+          {!project.archivedAt && <ProjectFormButton project={project} titles={titles} />}
+        </div>
+      </div>
       {project.archivedAt && (
         <p className="m-0">
           <span className="bd-badge">Arkiveret {formatShortDate(project.archivedAt)}</span>
@@ -53,10 +67,16 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
         />
       </div>
 
+      {canRegister && (
+        <div className="flex justify-end">
+          <WorkPackageFormButton projectId={project.id} categories={categoryOptions} employees={employees} />
+        </div>
+      )}
+
       {categories.length === 0 ? (
         <div className="bd-empty">
-          <strong>Ingen arbejdspakker</strong>
-          Arbejdspakker oprettes i #14.
+          <strong>Ingen arbejdspakker endnu</strong>
+          {canRegister ? 'Tilføj den første med "Tilføj arbejdspakke".' : 'Projektet er arkiveret.'}
         </div>
       ) : (
         <div className="bd-table-wrap">
@@ -89,7 +109,19 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
                 {category.workPackages.map((wp) => (
                   <tr key={wp.id} data-sev={isOverBudget(wp) ? 'blocker' : undefined}>
                     <td className="bd-tree-child">
-                      <div>{wp.name}</div>
+                      {/* Klik på navnet for at redigere. Arkiverede projekter kan ikke ændres. */}
+                      <div>
+                        {canRegister ? (
+                          <WorkPackageFormButton
+                            projectId={project.id}
+                            workPackage={wp}
+                            categories={categoryOptions}
+                            employees={employees}
+                          />
+                        ) : (
+                          wp.name
+                        )}
+                      </div>
                       <div className="bd-meta whitespace-nowrap">
                         {formatShortDate(wp.startDate)} – {formatShortDate(wp.endDate)}
                       </div>
