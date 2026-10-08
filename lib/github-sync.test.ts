@@ -1,7 +1,15 @@
 // Tests af importen fra GitHub (#24). Kør med: npm test
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { categoryFromLabels, type ExistingState, type GithubIssue, isEpic, parseGithubRepo, planGithubSync } from './github-sync';
+import {
+  categoryFromLabels,
+  type ExistingState,
+  type GithubIssue,
+  isEpic,
+  parseGithubRepo,
+  planGithubSync,
+  planIssueChanges,
+} from './github-sync';
 
 const issue = (number: number, overrides: Partial<GithubIssue> = {}): GithubIssue => ({
   number,
@@ -123,5 +131,29 @@ describe('parseGithubRepo', () => {
     assert.equal(parseGithubRepo('Intro-Project'), null);
     assert.equal(parseGithubRepo('https://github.com/jenathBD/Intro-Project/issues/24'), null);
     assert.equal(parseGithubRepo(''), null);
+  });
+});
+
+describe('planIssueChanges', () => {
+  const epics = new Set([4, 6]);
+
+  test('tilføjer kategori-labelen og fjerner den gamle', () => {
+    const changes = planIssueChanges({ labels: ['feature', 'kategori: Analyse'], parentNumber: 4 }, 'Udvikling', 4, epics);
+    assert.deepEqual(changes, { addLabels: ['kategori: Udvikling'], removeLabels: ['kategori: Analyse'], parent: null });
+  });
+
+  test('gør intet, når labels og forælder allerede passer (også med andre store og små bogstaver)', () => {
+    const changes = planIssueChanges({ labels: ['Kategori: udvikling'], parentNumber: 4 }, 'Udvikling', 4, epics);
+    assert.deepEqual(changes, { addLabels: [], removeLabels: [], parent: null });
+  });
+
+  test('flytter issuet til et andet epic', () => {
+    assert.deepEqual(planIssueChanges({ labels: [], parentNumber: 4 }, 'Test', 6, epics).parent, { set: 6 });
+    assert.deepEqual(planIssueChanges({ labels: [], parentNumber: null }, 'Test', 6, epics).parent, { set: 6 });
+  });
+
+  test('fjerner kun en forælder, som er et af projektets epics', () => {
+    assert.deepEqual(planIssueChanges({ labels: [], parentNumber: 4 }, 'Test', null, epics).parent, { remove: 4 });
+    assert.equal(planIssueChanges({ labels: [], parentNumber: 99 }, 'Test', null, epics).parent, null);
   });
 });

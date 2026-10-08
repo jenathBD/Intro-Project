@@ -6,7 +6,7 @@ import type { FormState } from '@/components/form-dialog';
 import { getRemainingHistory } from '@/lib/data/remaining';
 import { getTimeEntries } from '@/lib/data/time-entries';
 import { prisma } from '@/lib/db';
-import { type SyncResult, syncProjectFromGithub } from '@/lib/github';
+import { pushWorkPackageToGithub, type SyncResult, syncProjectFromGithub } from '@/lib/github';
 import { resolveHourlyRate } from '@/lib/pricing';
 import { NEW_CATEGORY, NEW_EPIC } from '@/lib/work-package';
 import { requireSession } from '@/lib/session';
@@ -204,7 +204,15 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
   revalidatePath('/projekter');
   // Pakkernes datoer bestemmer, hvilke uger projektet kan allokeres i
   revalidatePath('/allokering');
-  return { ok: true, message: id ? `${name} er opdateret.` : `${name} er oprettet.` };
+  const message = id ? `${name} er opdateret.` : `${name} er oprettet.`;
+
+  // Dashboardet er kilden: estimat, datoer, kategori og epic skrives til issuet (#51). Kun pakker med issue.
+  // Fejler GitHub, er ændringen stadig gemt her, og brugeren får en advarsel.
+  if (id) {
+    const github = await pushWorkPackageToGithub(id);
+    if (!github.ok) return { ok: true, message, warning: `GitHub blev ikke opdateret: ${github.error}` };
+  }
+  return { ok: true, message };
 }
 
 // Sletter en arbejdspakke (#14). Registreret tid må ikke forsvinde, så pakker med tid kan ikke slettes.

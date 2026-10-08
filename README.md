@@ -139,7 +139,8 @@ Et projekt kobles til et repo under **Redigér projekt** (fx `jenathBD/Intro-Pro
 
 - Issues med labelen `epic` eller med sub-issues bliver til epics. Alle andre issues bliver til arbejdspakker, så der kan registreres tid på dem.
 - **GitHub bestemmer** titel, åben/lukket og de PR'er, der lukker issuet. De opdateres ved hver hentning.
-- **Dashboardet bestemmer** estimat, datoer, ansvarlig, kategori, epic og status. De sættes kun, når pakken oprettes: lukkede issues bliver afsluttede, kategorien kommer fra en label som `kategori: Analyse` (ellers Udvikling), og den ansvarlige foreslås ud fra issuets assignee via medarbejderens GitHub-brugernavn.
+- **Dashboardet bestemmer** estimat, datoer, ansvarlig, kategori, epic og status. Ved import sættes de kun, når pakken oprettes: lukkede issues bliver afsluttede, kategorien kommer fra en label som `kategori: Analyse` (ellers Udvikling), og den ansvarlige foreslås ud fra issuets assignee via medarbejderens GitHub-brugernavn.
+- **Når en arbejdspakke med issue gemmes**, skrives den til GitHub (#51): kategorien som label (`kategori: Udvikling`; den gamle fjernes), epic som sub-issue-relation, og estimat og datoer til projekttavlens felter `Estimate`, `Start date` og `Target date` på hver tavle, issuet står på. Mangler et felt på tavlen, springes det over. Ændringer i de felter direkte på GitHub bliver overskrevet, næste gang pakken gemmes. Fejler GitHub, er ændringen stadig gemt i dashboardet, og der vises en advarsel.
 - Issues, der er lukket som "not planned", oprettes ikke.
 - Data gemmes i databasen, så siden ikke venter på GitHub. Hentning sker kun, når man trykker på knappen.
 - Arbejdspakker, der er oprettet i dashboardet uden issuenummer, kobles ikke til issues med samme navn.
