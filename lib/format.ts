@@ -4,8 +4,9 @@ const krFormat = new Intl.NumberFormat('da-DK', { style: 'currency', currency: '
 
 export const formatHours = (hours: number) => hoursFormat.format(hours);
 
-/** Med fortegn, fx +62 og −4. Bruges til afvigelser. */
-export const formatSignedHours = (hours: number) => (hours > 0 ? '+' : '') + hoursFormat.format(hours);
+/** Med fortegn, fx +62 og −4 (rigtigt minus, ikke bindestreg). Bruges til afvigelser. */
+export const formatSignedHours = (hours: number) =>
+  (hours > 0 ? '+' : hours < 0 ? '−' : '') + hoursFormat.format(Math.abs(hours));
 
 export const formatKr = (amount: number) => krFormat.format(amount);
 
