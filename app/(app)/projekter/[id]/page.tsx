@@ -9,6 +9,7 @@ import { getEmployeeOptions } from '@/lib/data/employees';
 import { type Figures, getProjectDetail } from '@/lib/data/projects';
 import { formatHours, formatKr, formatShortDate } from '@/lib/format';
 import { RegisterTimeButton } from './register-time';
+import { RemainingButton } from './remaining';
 import { SpentHoursButton } from './time-entries';
 
 // Konklusionen i én sætning (BD: overskrift og lede siger konklusionen, ikke emnet)
@@ -97,6 +98,15 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
                     <FigureCells
                       figures={wp}
                       spent={<SpentHoursButton workPackageId={wp.id} workPackageName={wp.name} hours={wp.spentHours} />}
+                      remaining={
+                        <RemainingButton
+                          workPackageId={wp.id}
+                          workPackageName={wp.name}
+                          hours={wp.remainingHours}
+                          updatedAt={wp.remainingUpdatedAt}
+                          canEdit={canRegister}
+                        />
+                      }
                     />
                     <td className="whitespace-nowrap">{wp.responsibleName}</td>
                     <td className="text-right">

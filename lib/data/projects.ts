@@ -27,6 +27,8 @@ export type WorkPackageRow = Figures & {
   status: WorkPackageStatus;
   startDate: Date;
   endDate: Date;
+  /** Tidspunkt for den seneste resterende-opdatering. null, hvis der aldrig er givet en vurdering */
+  remainingUpdatedAt: Date | null;
 };
 
 /** Arbejdspakkerne i én kategori med subtotal og udledt status */
@@ -53,7 +55,7 @@ function queryWorkPackages(filter: Prisma.Sql) {
     ),
     latest_remaining AS (
       -- Resterende er den seneste opdatering pr. arbejdspakke
-      SELECT DISTINCT ON ("workPackageId") "workPackageId", "remainingHours"
+      SELECT DISTINCT ON ("workPackageId") "workPackageId", "remainingHours", "createdAt"
       FROM remaining_update
       ORDER BY "workPackageId", "createdAt" DESC
     )
@@ -69,6 +71,7 @@ function queryWorkPackages(filter: Prisma.Sql) {
       wp."estimateHours"::float8 AS "estimateHours",
       COALESCE(s.hours, 0)::float8 AS "spentHours",
       COALESCE(lr."remainingHours", 0)::float8 AS "remainingHours",
+      lr."createdAt" AS "remainingUpdatedAt",
       COALESCE(s.cost, 0)::float8 AS "spentCost"
     FROM work_package wp
     JOIN project p ON p.id = wp."projectId"

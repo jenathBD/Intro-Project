@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import type { TimeEntrySource } from '@/app/generated/prisma/client';
+import { Dialog } from '@/components/dialog';
 import type { TimeEntryRow } from '@/lib/data/time-entries';
 import { formatHours, formatShortDate } from '@/lib/format';
 import { loadTimeEntries } from './actions';
@@ -18,7 +19,7 @@ export function SpentHoursButton({
   workPackageName: string;
   hours: number;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [entries, setEntries] = useState<TimeEntryRow[] | null>(null);
   const [error, setError] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -26,7 +27,7 @@ export function SpentHoursButton({
   function open() {
     setEntries(null);
     setError(false);
-    dialogRef.current?.showModal();
+    setIsOpen(true);
     // Hentes forfra hver gang, så nye registreringer altid er med
     startTransition(async () => {
       try {
@@ -49,7 +50,7 @@ export function SpentHoursButton({
       >
         {formatHours(hours)}
       </button>
-      <dialog ref={dialogRef} className="bd-dialog bd-dialog--wide" aria-labelledby={`entries-${workPackageId}`}>
+      <Dialog open={isOpen} onClose={() => setIsOpen(false)} labelledBy={`entries-${workPackageId}`} wide>
         <div className="grid gap-4">
           <header className="bd-page-head">
             <p className="bd-eyebrow">Tidsregistreringer</p>
@@ -102,12 +103,12 @@ export function SpentHoursButton({
           )}
 
           <div className="flex justify-end">
-            <button type="button" className="bd-btn bd-btn--secondary" onClick={() => dialogRef.current?.close()}>
+            <button type="button" className="bd-btn bd-btn--secondary" onClick={() => setIsOpen(false)}>
               Luk
             </button>
           </div>
         </div>
-      </dialog>
+      </Dialog>
     </>
   );
 }

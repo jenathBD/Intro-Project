@@ -6,6 +6,9 @@ import { formatHours, formatSignedHours } from '@/lib/format';
 
 export const isOverBudget = (figures: Figures) => figures.varianceHours > 0;
 
+/** Der er brugt mere end estimatet. Så er prognosen over budget, uanset hvad der er tilbage. */
+export const isSpentOverEstimate = (figures: Figures) => figures.spentHours > figures.estimateHours;
+
 export function FigureHeaderCells() {
   return (
     <>
@@ -18,13 +21,21 @@ export function FigureHeaderCells() {
   );
 }
 
-/** spent erstatter indholdet i "Brugt"-cellen, fx med en knap der viser registreringerne */
-export function FigureCells({ figures, spent }: { figures: Figures; spent?: ReactNode }) {
+/** spent og remaining erstatter indholdet i "Brugt"- og "Resterende"-cellerne, fx med knapper der åbner detaljer */
+export function FigureCells({ figures, spent, remaining }: { figures: Figures; spent?: ReactNode; remaining?: ReactNode }) {
+  // Rødt og fedt som afvigelsen. Forklaringen står som skjult tekst til skærmlæsere, som ikke kan se farven.
+  const spentWarning = isSpentOverEstimate(figures)
+    ? `Brugt er ${formatHours(figures.spentHours - figures.estimateHours)} t over estimatet på ${formatHours(figures.estimateHours)} t.`
+    : undefined;
+
   return (
     <>
       <td className="num">{formatHours(figures.estimateHours)}</td>
-      <td className="num">{spent ?? formatHours(figures.spentHours)}</td>
-      <td className="num">{formatHours(figures.remainingHours)}</td>
+      <td className={spentWarning ? 'num bd-over-estimate' : 'num'}>
+        {spent ?? formatHours(figures.spentHours)}
+        {spentWarning && <span className="sr-only"> {spentWarning}</span>}
+      </td>
+      <td className="num">{remaining ?? formatHours(figures.remainingHours)}</td>
       <td className="num">{formatHours(figures.forecastHours)}</td>
       <td className={isOverBudget(figures) ? 'num font-semibold text-bd-danger' : 'num'}>
         {formatSignedHours(figures.varianceHours)}

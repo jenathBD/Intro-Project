@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { getRemainingHistory } from '@/lib/data/remaining';
 import { getTimeEntries } from '@/lib/data/time-entries';
 import { prisma } from '@/lib/db';
 import { resolveHourlyRate } from '@/lib/pricing';
@@ -63,4 +64,44 @@ export async function registerTime(_prev: RegisterTimeState, formData: FormData)
 // Henter registreringerne, når brugeren klikker på "Brugt". getTimeEntries kalder selv requireSession().
 export async function loadTimeEntries(workPackageId: string) {
   return getTimeEntries(workPackageId);
+}
+
+export type UpdateRemainingState = { ok?: boolean; error?: string; message?: string };
+
+// Gemmer en ny vurdering af resterende (#13). Den seneste opdatering ER resterende, så prognosen ændres med det samme.
+export async function updateRemaining(_prev: UpdateRemainingState, formData: FormData): Promise<UpdateRemainingState> {
+  // Brugeren tages fra sessionen, aldrig fra formularen, så ingen kan opdatere i en andens navn
+  const session = await requireSession();
+
+  const workPackageId = String(formData.get('workPackageId') ?? '');
+  const remainingHours = Number(String(formData.get('remainingHours') ?? '').replace(',', '.'));
+  const comment = String(formData.get('comment') ?? '').trim() || null;
+
+  if (!Number.isFinite(remainingHours) || remainingHours < 0 || remainingHours > 99999) {
+    return { error: 'Resterende skal være et tal fra 0 og op.' };
+  }
+  if (Math.round(remainingHours * 4) !== remainingHours * 4) {
+    return { error: 'Resterende angives i kvarter, fx 12,25 eller 40.' };
+  }
+
+  const workPackage = await prisma.workPackage.findUnique({
+    where: { id: workPackageId },
+    select: { id: true, projectId: true, project: { select: { archivedAt: true } } },
+  });
+  if (!workPackage) return { error: 'Arbejdspakken findes ikke længere. Genindlæs siden.' };
+  if (workPackage.project.archivedAt) return { error: 'Projektet er arkiveret, så resterende kan ikke ændres.' };
+
+  await prisma.remainingUpdate.create({
+    data: { workPackageId: workPackage.id, remainingHours, comment, userId: session.user.id },
+  });
+
+  revalidatePath(`/projekter/${workPackage.projectId}`);
+  revalidatePath('/projekter');
+
+  return { ok: true, message: `Resterende er opdateret til ${new Intl.NumberFormat('da-DK').format(remainingHours)} t.` };
+}
+
+// Henter historikken, når dialogen åbnes. getRemainingHistory kalder selv requireSession().
+export async function loadRemainingHistory(workPackageId: string) {
+  return getRemainingHistory(workPackageId);
 }

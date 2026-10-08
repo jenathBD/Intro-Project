@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState, useEffect, useRef, useState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
+import { Dialog } from '@/components/dialog';
 import type { EmployeeOption } from '@/lib/data/employees';
 import { registerTime, type RegisterTimeState } from './actions';
 
@@ -19,35 +20,23 @@ type Props = {
 
 // Knap og dialog til at registrere tid på én arbejdspakke
 export function RegisterTimeButton(props: Props) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  function show() {
-    setOpen(true);
-    dialogRef.current?.showModal();
-  }
-
-  function close() {
-    dialogRef.current?.close();
-  }
-
   function handleSaved(message: string) {
-    close();
+    setOpen(false);
     setToast(message);
     setTimeout(() => setToast(null), 4000);
   }
 
   return (
     <>
-      <button type="button" className="bd-btn bd-btn--secondary bd-btn--sm" onClick={show}>
+      <button type="button" className="bd-btn bd-btn--secondary bd-btn--sm" onClick={() => setOpen(true)}>
         Registrér tid
       </button>
-      {/* <dialog> med showModal(): browseren håndterer fokus, Escape og baggrunden */}
-      <dialog ref={dialogRef} className="bd-dialog" aria-labelledby={`register-${props.workPackageId}`} onClose={() => setOpen(false)}>
-        {/* Formularen findes kun, mens dialogen er åben, så den starter forfra hver gang */}
-        {open && <RegisterTimeForm {...props} onCancel={close} onSaved={handleSaved} />}
-      </dialog>
+      <Dialog open={open} onClose={() => setOpen(false)} labelledBy={`register-${props.workPackageId}`}>
+        <RegisterTimeForm {...props} onCancel={() => setOpen(false)} onSaved={handleSaved} />
+      </Dialog>
       {toast && (
         <div className="bd-toast-region" role="status">
           <div className="bd-toast">{toast}</div>

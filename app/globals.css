@@ -86,6 +86,10 @@
   /* Toast nederst til højre */
   .bd-toast-region { position: fixed; right: var(--bd-s5); bottom: var(--bd-s5); z-index: 50; }
 
+  /* Brugt over estimat: rødt og fedt tal som afvigelsen. Klikbare tal (Brugt-knappen) bliver også røde. */
+  .bd-table td.bd-over-estimate { color: var(--bd-danger); font-weight: 600; }
+  .bd-table td.bd-over-estimate .bd-link-button { color: inherit; font-weight: inherit; }
+
   /* Total-række nederst i en tabel (#12) */
   .bd-table tfoot td { border-top: 2px solid var(--bd-line); border-bottom: 0; font-weight: 600; }
 
