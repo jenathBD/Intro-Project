@@ -1,96 +1,10 @@
 'use client';
 
-import { useActionState, useEffect, useId, useState, type ReactNode } from 'react';
-import { Dialog } from '@/components/dialog';
+import { useId } from 'react';
+import { FormDialogButton } from '@/components/form-dialog';
 import { FULL_TIME_HOURS } from '@/lib/capacity';
 import type { EmployeeRow, TitleRow } from '@/lib/data/employees';
-import { saveEmployee, saveTitle, type SaveState } from './actions';
-
-type SaveAction = (prev: SaveState, formData: FormData) => Promise<SaveState>;
-
-// Knap, der åbner en dialog med en formular. Efter gem lukkes dialogen, og der vises en toast.
-function FormDialogButton({
-  buttonLabel,
-  buttonClassName,
-  eyebrow,
-  heading,
-  action,
-  submitLabel,
-  children,
-}: {
-  buttonLabel: string;
-  buttonClassName: string;
-  eyebrow: string;
-  heading: string;
-  action: SaveAction;
-  submitLabel: string;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const headingId = useId();
-
-  function handleSaved(message: string) {
-    setOpen(false);
-    setToast(message);
-    setTimeout(() => setToast(null), 4000);
-  }
-
-  return (
-    <>
-      <button type="button" className={buttonClassName} onClick={() => setOpen(true)}>
-        {buttonLabel}
-      </button>
-      <Dialog open={open} onClose={() => setOpen(false)} labelledBy={headingId}>
-        <DialogForm action={action} submitLabel={submitLabel} onCancel={() => setOpen(false)} onSaved={handleSaved}>
-          <header className="bd-page-head">
-            <p className="bd-eyebrow">{eyebrow}</p>
-            <h2 id={headingId} className="bd-h2">{heading}</h2>
-          </header>
-          {children}
-        </DialogForm>
-      </Dialog>
-      {toast && (
-        <div className="bd-toast-region" role="status">
-          <div className="bd-toast">{toast}</div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function DialogForm({
-  action,
-  submitLabel,
-  onCancel,
-  onSaved,
-  children,
-}: {
-  action: SaveAction;
-  submitLabel: string;
-  onCancel: () => void;
-  onSaved: (message: string) => void;
-  children: ReactNode;
-}) {
-  const [state, formAction, pending] = useActionState(action, {} as SaveState);
-
-  // Luk dialogen, når serveren har gemt (kun state som afhængighed, se register-time.tsx)
-  useEffect(() => {
-    if (state.ok && state.message) onSaved(state.message);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
-
-  return (
-    <form action={formAction} className="grid gap-4">
-      {children}
-      {state.error && <p role="alert" className="bd-callout bd-callout--blocker m-0">{state.error}</p>}
-      <div className="flex justify-end gap-2">
-        <button type="button" className="bd-btn bd-btn--ghost" onClick={onCancel}>Annullér</button>
-        <button className="bd-btn bd-btn--primary" disabled={pending}>{pending ? 'Gemmer …' : submitLabel}</button>
-      </div>
-    </form>
-  );
-}
+import { saveEmployee, saveTitle } from './actions';
 
 // Opret (uden employee) eller redigér (med employee) en medarbejder
 export function EmployeeFormButton({ employee, titles }: { employee?: EmployeeRow; titles: TitleRow[] }) {

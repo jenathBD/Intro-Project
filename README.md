@@ -94,7 +94,7 @@ npx prisma migrate dev --name beskriv_aendringen   # 1. opret og kør migratione
 npx prisma generate                                # 2. generér klienten (Prisma 7 gør det ikke automatisk)
 ```
 
-En kørende `npm run dev` opdager selv den nye klient og skriver *"Prisma-klienten er genereret igen – opretter en ny databaseforbindelse."* i terminalen. Du behøver ikke genstarte.
+En kørende `npm run dev` opdager selv et ændret skema og skriver *"Prisma-skemaet er ændret – opretter en ny databaseforbindelse."* i terminalen. Du behøver ikke genstarte.
 
 Prisma 7 kører heller ikke seed automatisk efter en migration. Har ændringen betydning for mockdata, så opdatér `prisma/seed.ts`, og kør `npm run db:seed`.
 

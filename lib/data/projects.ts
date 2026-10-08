@@ -22,7 +22,10 @@ export type ProjectOverviewRow = Figures & { id: string; name: string; customer:
 export type WorkPackageRow = Figures & {
   id: string;
   name: string;
+  description: string | null;
+  categoryId: string;
   categoryName: string;
+  responsibleId: string;
   responsibleName: string;
   status: WorkPackageStatus;
   startDate: Date;
@@ -63,7 +66,10 @@ function queryWorkPackages(filter: Prisma.Sql) {
       wp.id,
       wp."projectId",
       wp.name,
+      wp.description,
+      wp."categoryId",
       c.name AS "categoryName",
+      wp."responsibleId",
       e.name AS "responsibleName",
       wp.status::text AS status,
       wp."startDate",
@@ -98,17 +104,17 @@ function sumFigures(rows: Figures[]): Figures {
   });
 }
 
-// Nøgletal for alle aktive projekter (#11)
-export async function getProjectOverview(): Promise<ProjectOverviewRow[]> {
+// Nøgletal for alle aktive projekter (#11), eller for de arkiverede (#14)
+export async function getProjectOverview({ archived = false } = {}): Promise<ProjectOverviewRow[]> {
   await requireSession();
 
   const [projects, workPackages] = await Promise.all([
     prisma.project.findMany({
-      where: { archivedAt: null },
+      where: { archivedAt: archived ? { not: null } : null },
       select: { id: true, name: true, customer: true },
       orderBy: { name: 'asc' },
     }),
-    queryWorkPackages(Prisma.sql`p."archivedAt" IS NULL`),
+    queryWorkPackages(archived ? Prisma.sql`p."archivedAt" IS NOT NULL` : Prisma.sql`p."archivedAt" IS NULL`),
   ]);
 
   return projects.map((project) => ({
@@ -145,14 +151,32 @@ function categoryStatus(statuses: WorkPackageStatus[]): WorkPackageStatus {
 export async function getProjectDetail(id: string) {
   await requireSession();
 
-  const project = await prisma.project.findUnique({
+  const found = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, name: true, customer: true, archivedAt: true },
+    select: {
+      id: true,
+      name: true,
+      customer: true,
+      archivedAt: true,
+      pricingModel: true,
+      hourlyRate: true,
+      titleRates: { select: { titleId: true, hourlyRate: true } },
+    },
   });
-  if (!project) return null;
+  if (!found) return null;
+
+  // Decimal → number, så projektet kan sendes til redigeringsformularen (Client Component)
+  const project = {
+    ...found,
+    hourlyRate: found.hourlyRate === null ? null : Number(found.hourlyRate),
+    titleRates: found.titleRates.map((rate) => ({ titleId: rate.titleId, hourlyRate: Number(rate.hourlyRate) })),
+  };
 
   const rawWorkPackages = await queryWorkPackages(Prisma.sql`wp."projectId" = ${id}`);
   const workPackages: WorkPackageRow[] = rawWorkPackages.map(({ projectId: _projectId, ...wp }) => withForecast(wp));
 
   return { project, categories: groupByCategory(workPackages), totals: sumFigures(workPackages) };
 }
+
+/** Projektets felter til redigeringsformularen (#14) */
+export type ProjectForEdit = NonNullable<Awaited<ReturnType<typeof getProjectDetail>>>['project'];
