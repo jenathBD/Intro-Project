@@ -89,10 +89,11 @@ const EXTRA_EMPLOYEES: { name: string; title: TitleKey; weeklyCapacity: number }
 ];
 
 /**
- * FTE-mønstre for de øvrige medarbejdere. Medarbejder nr. i får mønster i % længden og projekter i rotation,
- * så resultatet er det samme ved hver kørsel. Hver fjerde slutter efter uge 4, så der også er ledig tid længere fremme.
+ * Allokering af de øvrige medarbejdere (fuld tid; skaleres på deltid), så allokeringsmødet (#45, #46) har en historie:
+ * - de første 6: Mobilbank 0,8 + Intern tid 0,2. Mobilbank mangler alligevel tid til de senere deadlines
+ * - resten skiftevis: Intern tid 1,0 (på bænken, kan flyttes) eller Intern tid 0,5 (og 0,5 ledig)
  */
-const EXTRA_PATTERNS: number[][] = [[1.0], [0.6, 0.4], [0.5, 0.5], [0.4, 0.4, 0.2], [0.8], [0.6, 0.2], [0.5, 0.3]];
+const MOBILBANK_TEAM_SIZE = 6;
 
 const PROJECTS: ProjectSeed[] = [
   {
@@ -162,6 +163,21 @@ const PROJECTS: ProjectSeed[] = [
       { name: 'Hosting og overvågning', category: 'Drift', responsible: 'jonas', status: 'notStarted', estimate: 20, start: 28, end: 49, spent: 0, remaining: 20 },
       // Projektledelse
       { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 80, start: -84, end: 49, spent: 52, remaining: 30 },
+    ],
+  },
+  {
+    // Stort projekt med for få folk til de senere deadlines (#45): 6 personer på 0,8 FTE.
+    // Deadline uge +7 kræver 2.070 t, men der er kun planlagt ca. 1.400 t → mangler tid.
+    name: 'Mobilbank',
+    customer: 'Kystkassen',
+    pricingModel: 'fixed',
+    hourlyRate: 1150,
+    packages: [
+      { name: 'Arkitektur og opsætning', category: 'Analyse', responsible: 'jonas', status: 'inProgress', estimate: 160, start: -14, end: 14, spent: 60, remaining: 100 },
+      { name: 'Integrationer til kernebank', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: 600, start: -7, end: 35, spent: 30, remaining: 570 },
+      { name: 'App-MVP', category: 'Udvikling', responsible: 'freja', status: 'inProgress', estimate: 1400, start: 0, end: 49, spent: 0, remaining: 1400 },
+      { name: 'Test og sikkerhedsgodkendelse', category: 'Test', responsible: 'sara', status: 'notStarted', estimate: 300, start: 42, end: 63, spent: 0, remaining: 300 },
+      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 160, start: -14, end: 63, spent: 20, remaining: 140 },
     ],
   },
   {
@@ -395,33 +411,26 @@ async function main() {
     })),
   );
 
-  // 2. Mønstre for de øvrige medarbejdere, fordelt på de aktive projekter i rotation
-  const activeProjects = PROJECTS.filter((p) => !p.archivedDaysAgo).map((p) => projectIds.get(p.name)!);
+  // 2. De øvrige medarbejdere (se MOBILBANK_TEAM_SIZE). FTE er for fuld tid og skaleres på deltid (30 t = 0,8).
+  const mobilbank = projectIds.get('Mobilbank')!;
   extraEmployeeIds.forEach((employeeId, i) => {
-    const pattern = EXTRA_PATTERNS[i % EXTRA_PATTERNS.length];
-    const lastWeek = i % 4 === 3 ? 4 : 8;
-    // Mønstrene er for fuld tid. På deltid skaleres de, så 30 t (0,8 FTE) fx får 0,5 + 0,3 i stedet for 0,6 + 0,4.
     const scale = EXTRA_EMPLOYEES[i].weeklyCapacity / FULL_TIME_HOURS;
-    pattern.forEach((fullTimeFte, j) => {
-      const fte = Math.round(fullTimeFte * scale * 10) / 10;
-      const projectId = activeProjects[(i + j) % activeProjects.length];
-      for (const weekStart of weeksFrom(-2, lastWeek)) allocations.push({ employeeId, projectId, weekStart, fte });
-    });
-    // Den første, der slutter efter uge 4, sættes på Intern tid bagefter (lavperiode, blå markering). De andre forbliver ledige.
-    if (i === 3) {
-      for (const weekStart of weeksFrom(5, 8)) {
-        allocations.push({ employeeId, projectId: INTERNAL_TIME_PROJECT_ID, weekStart, fte: Math.round(scale * 10) / 10 });
-      }
+    const fte = (fullTime: number) => Math.round(fullTime * scale * 10) / 10;
+    const plan: [string, number][] =
+      i < MOBILBANK_TEAM_SIZE
+        ? [[mobilbank, 0.8], [INTERNAL_TIME_PROJECT_ID, 0.2]]
+        : i % 2 === 0
+          ? [[INTERNAL_TIME_PROJECT_ID, 1.0]]
+          : [[INTERNAL_TIME_PROJECT_ID, 0.5]];
+    for (const [projectId, fullTime] of plan) {
+      for (const weekStart of weeksFrom(-2, 9)) allocations.push({ employeeId, projectId, weekStart, fte: fte(fullTime) });
     }
   });
 
-  // 3. Endnu et bevidst eksempel på overbooking: den anden ekstra medarbejder (0,6 + 0,4) får 0,2 mere
-  //    på sit første projekt i denne og næste uge, så summen bliver 1,2
-  for (const allocation of allocations) {
-    if (allocation.employeeId === extraEmployeeIds[1] && allocation.projectId === activeProjects[1]) {
-      const week = (allocation.weekStart as Date).getTime();
-      if (week === thisMonday.getTime() || week === thisMonday.getTime() + WEEK) allocation.fte = 0.8;
-    }
+  // 3. Endnu et bevidst eksempel på overbooking: den anden ekstra medarbejder får 0,2 på Booking-app oveni
+  //    i denne og næste uge, så summen bliver 1,2
+  for (const weekStart of weeksFrom(0, 1)) {
+    allocations.push({ employeeId: extraEmployeeIds[1], projectId: projectIds.get('Booking-app')!, weekStart, fte: 0.2 });
   }
 
   // 4. Kun allokeringer inden for projektets periode: fra ugen, hvor første pakke starter, til ugen, hvor sidste slutter.

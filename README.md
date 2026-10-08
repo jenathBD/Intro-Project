@@ -77,6 +77,7 @@ npm run dev
 | `npm run dev` | Starter udviklingsserveren |
 | `npm run build` | Bygger appen til produktion (inkl. typetjek) |
 | `npm run typecheck` | Typetjekker hele projektet (`tsc --noEmit`) |
+| `npm test` | Kører de automatiske tests (`lib/**/*.test.ts`, Nodes indbyggede testværktøj) |
 | `docker compose up -d` | Starter Postgres i baggrunden |
 | `docker compose down` | Stopper Postgres (data bevares) |
 | `docker compose down -v` | Stopper Postgres **og sletter alle data** |

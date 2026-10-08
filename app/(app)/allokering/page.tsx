@@ -30,7 +30,10 @@ export default async function AllocationPage({ searchParams }: PageProps<'/allok
 
   return (
     <>
-      <PageHeader eyebrow="Allokering" title={title} />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader eyebrow="Allokering" title={title} />
+        <Link href="/allokering/moede" className="bd-btn bd-btn--secondary bd-btn--sm">Allokeringsmøde →</Link>
+      </div>
 
       <nav className="flex flex-wrap items-center gap-2" aria-label="Vælg uger">
         <Link href={weekHref(addWeeks(firstWeek, -1))} className="bd-btn bd-btn--secondary bd-btn--sm">← Forrige uge</Link>
