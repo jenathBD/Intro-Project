@@ -6,7 +6,13 @@ import type { FormState } from '@/components/form-dialog';
 import { getRemainingHistory } from '@/lib/data/remaining';
 import { getTimeEntries } from '@/lib/data/time-entries';
 import { prisma } from '@/lib/db';
-import { pushWorkPackageToGithub, type SyncResult, syncProjectFromGithub } from '@/lib/github';
+import {
+  createIssueForEpic,
+  createIssueForWorkPackage,
+  pushWorkPackageToGithub,
+  type SyncResult,
+  syncProjectFromGithub,
+} from '@/lib/github';
 import { resolveHourlyRate } from '@/lib/pricing';
 import { NEW_CATEGORY, NEW_EPIC } from '@/lib/work-package';
 import { requireSession } from '@/lib/session';
@@ -131,6 +137,8 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
   const estimateHours = estimateValue ? Number(estimateValue.replace(',', '.')) : null;
   const startValue = String(formData.get('startDate') ?? '');
   const endValue = String(formData.get('endDate') ?? '');
+  // Kun ved oprettelse: opret også pakken som issue på GitHub (#25)
+  const createIssue = formData.get('createIssue') === 'on';
 
   // Validering: fejlbeskeder siger, hvad der er galt (BD-styleguide)
   if (!name) return { error: 'Skriv arbejdspakkens navn.' };
@@ -181,6 +189,7 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
       : epicValue || null;
 
   const data = { name, description, categoryId, epicId, responsibleId, status, estimateHours, startDate, endDate };
+  let createdId: string | null = null;
 
   if (id) {
     const updated = await prisma.workPackage.updateMany({ where: { id, projectId }, data });
@@ -188,7 +197,7 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
   } else {
     // En ny pakke får sin første vurdering af resterende = estimatet. Ellers ville prognosen vise den som færdig.
     // Uden estimat er der intet at starte fra; resterende sættes, når nogen vurderer det.
-    await prisma.workPackage.create({
+    const created = await prisma.workPackage.create({
       data: {
         ...data,
         projectId,
@@ -197,7 +206,9 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
             ? undefined
             : { create: { remainingHours: estimateHours, comment: 'Estimat ved oprettelse', userId: session.user.id } },
       },
+      select: { id: true },
     });
+    createdId = created.id;
   }
 
   revalidatePath(`/projekter/${projectId}`);
@@ -211,6 +222,10 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
   if (id) {
     const github = await pushWorkPackageToGithub(id);
     if (!github.ok) return { ok: true, message, warning: `GitHub blev ikke opdateret: ${github.error}` };
+  } else if (createdId && createIssue) {
+    const github = await createIssueForWorkPackage(createdId);
+    if (!github.ok) return { ok: true, message, warning: `Issuet blev ikke oprettet: ${github.error}` };
+    return { ok: true, message: `${name} er oprettet som issue #${github.number}.` };
   }
   return { ok: true, message };
 }
@@ -246,4 +261,22 @@ export async function syncGithub(projectId: string): Promise<SyncResult> {
     revalidatePath('/allokering/moede');
   }
   return result;
+}
+
+export type GithubCreateState = { ok: true; message: string } | { ok: false; error: string };
+
+// Opretter et issue for en eksisterende arbejdspakke (#25). createIssueForWorkPackage kalder selv requireSession().
+export async function createGithubIssue(workPackageId: string, projectId: string): Promise<GithubCreateState> {
+  const result = await createIssueForWorkPackage(workPackageId);
+  revalidatePath(`/projekter/${projectId}`);
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, message: `Issue #${result.number} er oprettet på GitHub.` };
+}
+
+// Opretter et epic, der kun findes i dashboardet, som issue (#25). createIssueForEpic kalder selv requireSession().
+export async function createGithubEpic(epicId: string, projectId: string): Promise<GithubCreateState> {
+  const result = await createIssueForEpic(epicId);
+  revalidatePath(`/projekter/${projectId}`);
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, message: `Epicet er oprettet som issue #${result.number} på GitHub.` };
 }

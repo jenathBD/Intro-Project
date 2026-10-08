@@ -15,6 +15,8 @@ const dateValue = (date: Date | null | undefined) => (date ? date.toISOString().
 
 type Props = {
   projectId: string;
+  /** Projektets repo. Med repo kan en ny pakke oprettes som issue (#25). */
+  githubRepo: string | null;
   /** Uden workPackage oprettes en ny; med redigeres den */
   workPackage?: WorkPackageRow;
   categories: CategoryOption[];
@@ -24,7 +26,7 @@ type Props = {
 };
 
 // Opret eller redigér en arbejdspakke (#14). Ved redigering er triggeren pakkens navn.
-export function WorkPackageFormButton({ projectId, workPackage, categories, epics, employees }: Props) {
+export function WorkPackageFormButton({ projectId, githubRepo, workPackage, categories, epics, employees }: Props) {
   const id = useId();
   const [category, setCategory] = useState(workPackage?.categoryId ?? '');
   const [epic, setEpic] = useState(workPackage?.epicId ?? '');
@@ -152,6 +154,19 @@ export function WorkPackageFormButton({ projectId, workPackage, categories, epic
           <input id={`${id}-end`} name="endDate" type="date" className="bd-input" defaultValue={dateValue(workPackage?.endDate)} />
         </div>
       </div>
+
+      {/* Kun ved oprettelse: pakker med issue skrives til GitHub, når de gemmes (#51) */}
+      {!workPackage && githubRepo && (
+        <label className="flex items-start gap-2">
+          <input type="checkbox" name="createIssue" defaultChecked className="mt-1" />
+          <span>
+            <span className="font-semibold">Opret som issue på GitHub</span>
+            <span className="bd-hint block">
+              I {githubRepo}, med kategori og epic. Et epic, der kun findes her, oprettes også.
+            </span>
+          </span>
+        </label>
+      )}
 
       <p className="bd-hint m-0">
         Ansvarlig, estimat og datoer er valgfrie. Uden estimat er al tid på pakken over budget og

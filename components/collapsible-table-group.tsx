@@ -1,9 +1,14 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { type MouseEvent, useState, type ReactNode } from 'react';
 
 // Fold-pilen peger mod højre og drejer ned, når gruppen er foldet ud. Drejningen styres af CSS ud fra
 // knappens aria-expanded, så pil og skærmlæser altid er enige.
+// Klik på rækken folder gruppen, men ikke klik på links og andre knapper i rækken (fx "Opret på GitHub")
+function isOwnClick(event: MouseEvent) {
+  return !(event.target as HTMLElement).closest('a, button:not(.bd-group-toggle)');
+}
+
 function Chevron() {
   return (
     <svg className="bd-chevron" viewBox="0 0 16 16" aria-hidden="true">
@@ -37,7 +42,7 @@ export function CollapsibleTableGroup({
   return (
     <tbody>
       {/* Hele rækken kan klikkes. Knappen er der til tastatur og skærmlæsere; dens klik bobler op til rækken. */}
-      <tr className="bd-group-row" data-sev={severity} onClick={() => setOpen(!open)}>
+      <tr className="bd-group-row" data-sev={severity} onClick={(event) => isOwnClick(event) && setOpen(!open)}>
         <td>
           <button type="button" className="bd-group-toggle" aria-expanded={open}>
             <Chevron />
@@ -73,7 +78,7 @@ export function CollapsibleTableSubgroup({
 
   return (
     <>
-      <tr className="bd-subgroup-row" data-sev={severity} onClick={() => setOpen(!open)}>
+      <tr className="bd-subgroup-row" data-sev={severity} onClick={(event) => isOwnClick(event) && setOpen(!open)}>
         <td className="bd-tree-child">
           <button type="button" className="bd-group-toggle" aria-expanded={open}>
             <Chevron />

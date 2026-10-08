@@ -2,7 +2,7 @@ import 'server-only';
 
 import { Prisma } from '@/app/generated/prisma/client';
 import { prisma } from '@/lib/db';
-import { type GithubIssue, type GithubPullRequest, planGithubSync, planIssueChanges } from '@/lib/github-sync';
+import { categoryLabel, type GithubIssue, type GithubPullRequest, planGithubSync, planIssueChanges } from '@/lib/github-sync';
 import { requireSession } from '@/lib/session';
 
 // GitHub-integrationen: import (#24) og skrivning (#51). Tokenet ligger kun på serveren (GITHUB_TOKEN i .env)
@@ -76,11 +76,42 @@ async function githubGraphql<T>(token: string, query: string, variables: Record<
 }
 
 /** REST-kald. allow: statuskoder, der ikke er fejl her, fx 404, når en label allerede er fjernet. */
-async function githubRest(token: string, method: string, path: string, body?: unknown, allow: number[] = []) {
+async function githubRest<T = unknown>(token: string, method: string, path: string, body?: unknown, allow: number[] = []): Promise<T | null> {
   const response = await githubFetch(token, `https://api.github.com${path}`, { method, body });
   if (!response.ok && !allow.includes(response.status)) {
     throw new GithubError(`GitHub svarede ikke som forventet (HTTP ${response.status}). Prøv igen om lidt.`);
   }
+  return response.ok && response.status !== 204 ? ((await response.json()) as T) : null;
+}
+
+// Opretter et issue og lægger det på de projekttavler, der er koblet til repoet (#25).
+// Uden tavle kan estimat og datoer ikke skrives, men issuet oprettes stadig.
+async function createIssue(token: string, repo: string, issue: { title: string; body: string; labels: string[] }) {
+  const created = await githubRest<{ number: number; node_id: string }>(token, 'POST', `/repos/${repo}/issues`, issue);
+  if (!created) throw new GithubError('GitHub oprettede ikke issuet. Prøv igen om lidt.');
+
+  const [owner, name] = repo.split('/');
+  const { data } = await githubGraphql<{ repository: { projectsV2: { nodes: { id: string }[] } } | null }>(
+    token,
+    'query ($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { projectsV2(first: 10) { nodes { id } } } }',
+    { owner, name },
+  );
+  const projects = data?.repository?.projectsV2.nodes ?? [];
+  if (projects.length > 0) {
+    const mutations = projects.map(
+      (project, i) => `m${i}: addProjectV2ItemById(input: { projectId: ${JSON.stringify(project.id)}, contentId: ${JSON.stringify(created.node_id)} }) { item { id } }`,
+    );
+    await githubGraphql(token, `mutation { ${mutations.join('\n')} }`);
+  }
+  return created.number;
+}
+
+// Opretter epicet som issue med labelen "epic", hvis det ikke allerede har et (#25). Returnerer issuenummeret.
+async function ensureEpicIssue(token: string, repo: string, epic: { id: string; name: string; githubNumber: number | null }) {
+  if (epic.githubNumber !== null) return epic.githubNumber;
+  const number = await createIssue(token, repo, { title: epic.name, body: '', labels: ['epic'] });
+  await prisma.epic.update({ where: { id: epic.id }, data: { githubNumber: number } });
+  return number;
 }
 
 async function fetchIssues(repo: string, token: string): Promise<GithubIssue[]> {
@@ -283,7 +314,7 @@ export async function pushWorkPackageToGithub(workPackageId: string): Promise<Pu
       startDate: true,
       endDate: true,
       category: { select: { name: true } },
-      epic: { select: { githubNumber: true } },
+      epic: { select: { id: true, name: true, githubNumber: true } },
       project: { select: { githubRepo: true, epics: { where: { githubNumber: { not: null } }, select: { githubNumber: true } } } },
     },
   });
@@ -303,11 +334,13 @@ export async function pushWorkPackageToGithub(workPackageId: string): Promise<Pu
     const issue = data?.repository?.issue;
     if (!issue) return { ok: false, error: `Issue #${wp.githubNumber} findes ikke i ${repo}.` };
 
-    // 1. Kategori som label og epic som sub-issue-relation
+    // 1. Kategori som label og epic som sub-issue-relation. Et epic, der kun findes i dashboardet
+    //    (fx oprettet med "+ Nyt epic"), oprettes først som issue (#25).
+    const epicNumber = wp.epic ? await ensureEpicIssue(token, repo, wp.epic) : null;
     const changes = planIssueChanges(
       { labels: issue.labels.nodes.map((l) => l.name), parentNumber: issue.parent?.number ?? null },
       wp.category.name,
-      wp.epic?.githubNumber ?? null,
+      epicNumber,
       new Set(wp.project.epics.map((e) => e.githubNumber!)),
     );
     const issuePath = `/repos/${repo}/issues/${wp.githubNumber}`;
@@ -357,5 +390,69 @@ export async function pushWorkPackageToGithub(workPackageId: string): Promise<Pu
     if (error instanceof GithubError) return { ok: false, error: error.message };
     console.error('GitHub: skrivning fejlede', error);
     return { ok: false, error: 'Vi kunne ikke nå GitHub. Prøv at gemme igen om lidt.' };
+  }
+}
+
+// Opretter et issue for en arbejdspakke uden issue (#25): navn og beskrivelse, kategori som label, og på
+// repoets projekttavler. Bagefter skrives epic, estimat og datoer som ved gem (#51).
+export async function createIssueForWorkPackage(workPackageId: string): Promise<PushResult & { number?: number }> {
+  await requireSession();
+
+  const wp = await prisma.workPackage.findUnique({
+    where: { id: workPackageId },
+    select: { name: true, description: true, githubNumber: true, category: { select: { name: true } }, project: { select: { githubRepo: true } } },
+  });
+  if (!wp) return { ok: false, error: 'Arbejdspakken findes ikke længere. Genindlæs siden.' };
+  if (wp.githubNumber !== null) return { ok: true, number: wp.githubNumber };
+  const repo = wp.project.githubRepo;
+  if (!repo) return { ok: false, error: 'Projektet har intet GitHub-repo. Tilføj det under "Redigér projekt".' };
+
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return { ok: false, error: 'GITHUB_TOKEN mangler i .env.' };
+
+  let number: number;
+  try {
+    number = await createIssue(token, repo, {
+      title: wp.name,
+      body: wp.description ?? '',
+      labels: [categoryLabel(wp.category.name)],
+    });
+  } catch (error) {
+    if (error instanceof GithubError) return { ok: false, error: error.message };
+    console.error('GitHub: oprettelse af issue fejlede', error);
+    return { ok: false, error: 'Vi kunne ikke oprette issuet. Prøv igen om lidt.' };
+  }
+
+  await prisma.workPackage.update({
+    where: { id: workPackageId },
+    data: { githubNumber: number, githubState: 'open', githubPullRequests: [], githubSyncedAt: new Date() },
+  });
+
+  // Issuet findes nu. Fejler resten, er pakken stadig koblet, og det rettes, næste gang den gemmes.
+  const pushed = await pushWorkPackageToGithub(workPackageId);
+  return pushed.ok ? { ok: true, number } : { ok: false, number, error: `Issue #${number} er oprettet, men ${pushed.error.charAt(0).toLowerCase()}${pushed.error.slice(1)}` };
+}
+
+// Opretter et epic, der kun findes i dashboardet, som issue med labelen "epic" (#25)
+export async function createIssueForEpic(epicId: string): Promise<PushResult & { number?: number }> {
+  await requireSession();
+
+  const epic = await prisma.epic.findUnique({
+    where: { id: epicId },
+    select: { id: true, name: true, githubNumber: true, project: { select: { githubRepo: true } } },
+  });
+  if (!epic) return { ok: false, error: 'Epicet findes ikke længere. Genindlæs siden.' };
+  const repo = epic.project.githubRepo;
+  if (!repo) return { ok: false, error: 'Projektet har intet GitHub-repo. Tilføj det under "Redigér projekt".' };
+
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return { ok: false, error: 'GITHUB_TOKEN mangler i .env.' };
+
+  try {
+    return { ok: true, number: await ensureEpicIssue(token, repo, epic) };
+  } catch (error) {
+    if (error instanceof GithubError) return { ok: false, error: error.message };
+    console.error('GitHub: oprettelse af epic fejlede', error);
+    return { ok: false, error: 'Vi kunne ikke oprette epicet på GitHub. Prøv igen om lidt.' };
   }
 }
