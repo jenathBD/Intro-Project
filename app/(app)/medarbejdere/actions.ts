@@ -18,6 +18,8 @@ export async function saveEmployee(_prev: SaveState, formData: FormData): Promis
   const name = String(formData.get('name') ?? '').trim();
   const titleId = String(formData.get('titleId') ?? '');
   const weeklyCapacity = toNumber(formData.get('weeklyCapacity'));
+  // GitHub-brugernavn uden @ (#24). Tomt = ingen kobling.
+  const githubLogin = String(formData.get('githubLogin') ?? '').trim().replace(/^@/, '') || null;
 
   if (!name) return { error: 'Skriv medarbejderens navn.' };
   if (!titleId) return { error: 'Vælg en titel.' };
@@ -25,16 +27,28 @@ export async function saveEmployee(_prev: SaveState, formData: FormData): Promis
     return { error: 'Ugentlig kapacitet skal være mellem 1 og 60 timer.' };
   }
   if (Math.round(weeklyCapacity * 2) !== weeklyCapacity * 2) return { error: 'Kapacitet angives i halve timer, fx 37 eller 32,5.' };
+  // GitHubs regel: bogstaver, tal og bindestreg, højst 39 tegn
+  if (githubLogin && !/^[A-Za-z0-9-]{1,39}$/.test(githubLogin)) {
+    return { error: 'GitHub-brugernavnet må kun indeholde bogstaver, tal og bindestreg.' };
+  }
 
   const title = await prisma.title.findUnique({ where: { id: titleId }, select: { id: true } });
   if (!title) return { error: 'Titlen findes ikke længere. Genindlæs siden.' };
 
-  const data = { name, titleId, weeklyCapacity };
-  if (id) {
-    const updated = await prisma.employee.updateMany({ where: { id }, data });
-    if (updated.count === 0) return { error: 'Medarbejderen findes ikke længere. Genindlæs siden.' };
-  } else {
-    await prisma.employee.create({ data });
+  const data = { name, titleId, weeklyCapacity, githubLogin };
+  try {
+    if (id) {
+      const updated = await prisma.employee.updateMany({ where: { id }, data });
+      if (updated.count === 0) return { error: 'Medarbejderen findes ikke længere. Genindlæs siden.' };
+    } else {
+      await prisma.employee.create({ data });
+    }
+  } catch (error) {
+    // P2002 = unik værdi findes allerede (Employee.githubLogin er @unique)
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return { error: `GitHub-brugernavnet ${githubLogin} hører allerede til en anden medarbejder.` };
+    }
+    throw error;
   }
 
   // Kapaciteten bruges også i ugegridet

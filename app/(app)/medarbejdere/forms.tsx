@@ -49,6 +49,18 @@ export function EmployeeFormButton({ employee, titles }: { employee?: EmployeeRo
         />
         <span className="bd-hint">{FULL_TIME_HOURS} t = 1,0 FTE. Deltid, fx 30 t = 0,8 FTE.</span>
       </div>
+      <div className="bd-field">
+        <label className="bd-label" htmlFor={`${id}-github`}>GitHub-brugernavn</label>
+        <input
+          id={`${id}-github`}
+          name="githubLogin"
+          className="bd-input max-w-60"
+          defaultValue={employee?.githubLogin ?? ''}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <span className="bd-hint">Valgfri. Bliver foreslået som ansvarlig på issues, medarbejderen er assignee på.</span>
+      </div>
     </FormDialogButton>
   );
 }

@@ -9,8 +9,10 @@ import { WorkPackageStatusBadge } from '@/components/work-package-status';
 import { type CategoryOption, getCategories } from '@/lib/data/categories';
 import { type EmployeeOption, getEmployeeOptions, getTitles } from '@/lib/data/employees';
 import { type EpicOption, type Figures, getProjectDetail, type WorkPackageRow } from '@/lib/data/projects';
-import { formatHours, formatKr, formatShortDate } from '@/lib/format';
+import { formatDateTime, formatHours, formatKr, formatShortDate } from '@/lib/format';
+import type { GithubPullRequest } from '@/lib/github-sync';
 import { ArchiveProjectButton, ProjectFormButton } from '../project-form';
+import { GithubSyncButton } from './github-sync';
 import { RegisterTimeButton } from './register-time';
 import { RemainingButton } from './remaining';
 import { SpentHoursButton } from './time-entries';
@@ -41,7 +43,15 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
   const canRegister = !project.archivedAt;
   // Fravær (fx Ferie) har ingen arbejdspakker; det lægges ind i allokeringen (#44)
   const canAddPackages = canRegister && project.kind !== 'absence';
-  const rowProps = { projectId: project.id, canRegister, categoryOptions, epics: project.epics, employees, currentEmployeeId };
+  const rowProps = {
+    projectId: project.id,
+    githubRepo: project.githubRepo,
+    canRegister,
+    categoryOptions,
+    epics: project.epics,
+    employees,
+    currentEmployeeId,
+  };
 
   return (
     <>
@@ -77,9 +87,24 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
         />
       </div>
 
-      {canAddPackages && (
-        <div className="flex justify-end">
-          <WorkPackageFormButton projectId={project.id} categories={categoryOptions} epics={project.epics} employees={employees} />
+      {(canAddPackages || project.githubRepo) && (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* GitHub (#24): hvilket repo, hvornår der sidst er hentet, og knappen til at hente igen */}
+          {project.githubRepo ? (
+            <div className="flex flex-wrap items-center gap-3">
+              {canRegister && <GithubSyncButton projectId={project.id} />}
+              <span className="bd-meta">
+                <a href={`https://github.com/${project.githubRepo}`} target="_blank" rel="noreferrer">{project.githubRepo}</a>
+                {' · '}
+                {project.githubSyncedAt ? `hentet ${formatDateTime(project.githubSyncedAt)}` : 'ikke hentet endnu'}
+              </span>
+            </div>
+          ) : (
+            <span />
+          )}
+          {canAddPackages && (
+            <WorkPackageFormButton projectId={project.id} categories={categoryOptions} epics={project.epics} employees={employees} />
+          )}
         </div>
       )}
 
@@ -163,6 +188,7 @@ function GroupCells({ status, totals }: { status: WorkPackageStatus; totals: Fig
 
 type RowProps = {
   projectId: string;
+  githubRepo: string | null;
   canRegister: boolean;
   categoryOptions: CategoryOption[];
   epics: EpicOption[];
@@ -175,6 +201,7 @@ function WorkPackageTableRow({
   wp,
   level,
   projectId,
+  githubRepo,
   canRegister,
   categoryOptions,
   epics,
@@ -199,7 +226,12 @@ function WorkPackageTableRow({
           )}
         </div>
         <div className="bd-meta flex flex-wrap items-center gap-2 whitespace-nowrap">
-          {wp.githubNumber !== null && <span className="bd-id">#{wp.githubNumber}</span>}
+          {wp.githubNumber !== null && (
+            <GithubLink repo={githubRepo} path={`issues/${wp.githubNumber}`} label={`#${wp.githubNumber}`} state={wp.githubState === 'closed' ? 'lukket' : null} />
+          )}
+          {wp.pullRequests.map((pr) => (
+            <GithubLink key={pr.number} repo={githubRepo} path={`pull/${pr.number}`} label={`PR #${pr.number}`} state={PR_STATES[pr.state]} title={pr.title} />
+          ))}
           {(wp.startDate || wp.endDate) && (
             <span>
               {wp.startDate ? formatShortDate(wp.startDate) : '…'} – {wp.endDate ? formatShortDate(wp.endDate) : '…'}
@@ -234,5 +266,22 @@ function WorkPackageTableRow({
         )}
       </td>
     </tr>
+  );
+}
+
+const PR_STATES: Record<GithubPullRequest['state'], string> = { open: 'åben', closed: 'lukket', merged: 'merget' };
+
+// Issue eller PR som ID med link til GitHub (#24). Uden repo vises kun ID'et.
+function GithubLink({ repo, path, label, state, title }: { repo: string | null; path: string; label: string; state: string | null; title?: string }) {
+  const id = <span className="bd-id">{label}</span>;
+  return (
+    <span className="inline-flex items-center gap-1" title={title}>
+      {repo ? (
+        <a href={`https://github.com/${repo}/${path}`} target="_blank" rel="noreferrer" className="no-underline">{id}</a>
+      ) : (
+        id
+      )}
+      {state && <span>{state}</span>}
+    </span>
   );
 }

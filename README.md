@@ -112,6 +112,7 @@ Alle variabler er beskrevet i [`.env.example`](.env.example). `.env` indeholder 
 | `DATABASE_URL` | Forbindelse til Postgres. Standardværdien matcher `docker-compose.yml` |
 | `BETTER_AUTH_SECRET` | Hemmelig nøgle til at signere sessioner |
 | `BETTER_AUTH_URL` | Appens egen adresse |
+| `GITHUB_TOKEN` | Valgfri. Token til at hente issues og PR'er fra GitHub. Lokalt kan du bruge `gh auth token` |
 
 ## Projektstruktur
 
@@ -124,12 +125,24 @@ components/          delte komponenter (topbar, sidepanel …)
 lib/db.ts            den fælles Prisma-klient – importér prisma herfra
 lib/auth.ts          Better Auth-konfiguration
 lib/session.ts       getSession() og requireSession()
+lib/github.ts        henter issues fra GitHub; reglerne for importen står i lib/github-sync.ts
 proxy.ts             sender besøgende uden session-cookie til /login
 prisma/              schema.prisma og migrationer
 docker-compose.yml   lokal Postgres
 ```
 
 Styling følger Better Developers' styleguide. Se [`bd-style.md`](bd-style.md).
+
+## GitHub
+
+Et projekt kobles til et repo under **Redigér projekt** (fx `jenathBD/Intro-Project`). **Hent fra GitHub** på projektsiden henter alle issues:
+
+- Issues med labelen `epic` eller med sub-issues bliver til epics. Alle andre issues bliver til arbejdspakker, så der kan registreres tid på dem.
+- **GitHub bestemmer** titel, åben/lukket og de PR'er, der lukker issuet. De opdateres ved hver hentning.
+- **Dashboardet bestemmer** estimat, datoer, ansvarlig, kategori, epic og status. De sættes kun, når pakken oprettes: lukkede issues bliver afsluttede, kategorien kommer fra en label som `kategori: Analyse` (ellers Udvikling), og den ansvarlige foreslås ud fra issuets assignee via medarbejderens GitHub-brugernavn.
+- Issues, der er lukket som "not planned", oprettes ikke.
+- Data gemmes i databasen, så siden ikke venter på GitHub. Hentning sker kun, når man trykker på knappen.
+- Arbejdspakker, der er oprettet i dashboardet uden issuenummer, kobles ikke til issues med samme navn.
 
 ## Adgangskontrol
 
