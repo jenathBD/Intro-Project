@@ -142,9 +142,12 @@ model Project {
   hourlyRate   Decimal?           @db.Decimal(10, 2)
   /// Sat, når projektet er arkiveret (#14). null = aktivt.
   archivedAt   DateTime?
+  /// GitHub-repo som "owner/name" (#50). Arbejdspakkernes issues og epics ligger her.
+  githubRepo   String?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
   workPackages WorkPackage[]
+  epics        Epic[]
   titleRates   ProjectTitleRate[]
   allocations  Allocation[]
 
@@ -188,29 +191,61 @@ model WorkPackageCategory {
   @@map("work_package_category")
 }
 
+/// Grupperer arbejdspakker som et epic i GitHub (#50). Har intet estimat eller tid selv:
+/// tallene er summen af pakkerne, så de ikke kan komme ud af takt.
+model Epic {
+  id           String        @id @default(cuid())
+  projectId    String
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  name         String
+  /// Epic-issuets nummer i projektets repo. null = findes kun i dashboardet.
+  githubNumber Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  workPackages WorkPackage[]
+
+  @@unique([projectId, githubNumber])
+  @@map("epic")
+}
+
+/// En arbejdspakke svarer til ét GitHub-issue, når projektet har et repo (#50).
+/// Estimat, ansvarlig og datoer er valgfrie, fordi alle issues hentes ind, så der kan registreres tid på dem.
 model WorkPackage {
   id               String              @id @default(cuid())
   projectId        String
   project          Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
   name             String
   description      String?
+  /// Én kategori pr. pakke, så opgørelser pr. kategori summerer til projektets total
   categoryId       String
   category         WorkPackageCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  /// Valgfri. Pakker som fx management hører ikke til et epic.
+  epicId           String?
+  epic             Epic?               @relation(fields: [epicId], references: [id], onDelete: SetNull)
   /// Den ene medarbejder, der er ansvarlig for arbejdspakken
-  responsibleId    String
-  responsible      Employee            @relation("WorkPackageResponsible", fields: [responsibleId], references: [id], onDelete: Restrict)
+  responsibleId    String?
+  responsible      Employee?           @relation("WorkPackageResponsible", fields: [responsibleId], references: [id], onDelete: Restrict)
   status           WorkPackageStatus   @default(notStarted)
-  estimateHours    Decimal             @db.Decimal(7, 2)
-  startDate        DateTime            @db.Date
-  endDate          DateTime            @db.Date
+  /// null = ikke estimeret. Tæller ikke med i estimatet, men tid på pakken tæller med i brugt og prognose.
+  estimateHours    Decimal?            @db.Decimal(7, 2)
+  startDate        DateTime?           @db.Date
+  /// Deadline i bemandingstjekket (#45). Pakker uden slutdato indgår ikke.
+  endDate          DateTime?           @db.Date
+  /// Issuets nummer i projektets repo. null = pakken har intet issue.
+  githubNumber     Int?
+  /// Fra seneste sync (#24): "open" eller "closed"
+  githubState      String?
+  githubSyncedAt   DateTime?
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   timeEntries      TimeEntry[]
   /// Resterende er altid den seneste opdatering (#13). Gemmes ikke på arbejdspakken.
   remainingUpdates RemainingUpdate[]
 
+  @@unique([projectId, githubNumber])
   @@index([projectId])
   @@index([responsibleId])
+  @@index([epicId])
   @@map("work_package")
 }
 
@@ -224,6 +259,8 @@ model Employee {
   weeklyCapacity Decimal       @db.Decimal(5, 2)
   /// Kobling til Clockify (#22).
   clockifyUserId String?       @unique
+  /// GitHub-brugernavn (#50). Issuets assignee foreslås som ansvarlig (#24).
+  githubLogin    String?       @unique
   /// Kobling til et login (#26, #27). Ikke alle medarbejdere har nødvendigvis en bruger.
   userId         String?       @unique
   user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)

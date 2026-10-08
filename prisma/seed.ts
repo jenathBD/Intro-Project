@@ -27,7 +27,12 @@ type PackageSeed = {
   category: CategoryName;
   responsible: EmployeeKey;
   status: WorkPackageStatus;
-  estimate: number;
+  /** null = ikke estimeret (#50) */
+  estimate: number | null;
+  /** Navnet på pakkens epic. Oprettes første gang, det bruges i projektet (#50). */
+  epic?: string;
+  /** Issuets nummer i projektets repo (#50) */
+  github?: number;
   /** Start og slut i dage fra i dag (negativ = fortid) */
   start: number;
   end: number;
@@ -46,6 +51,8 @@ type ProjectSeed = {
   hourlyRate?: number;
   titleRates?: Partial<Record<TitleKey, number>>;
   archivedDaysAgo?: number;
+  /** "owner/name" (#50) */
+  githubRepo?: string;
   packages: PackageSeed[];
 };
 
@@ -168,16 +175,19 @@ const PROJECTS: ProjectSeed[] = [
   {
     // Stort projekt med for få folk til de senere deadlines (#45): 6 personer på 0,8 FTE.
     // Deadline uge +7 kræver 2.070 t, men der er kun planlagt ca. 1.400 t → mangler tid.
+    // Koblet til GitHub med epics (#50). Projektledelse og arkitektur hører ikke til et epic, og support er ikke estimeret.
     name: 'Mobilbank',
     customer: 'Kystkassen',
     pricingModel: 'fixed',
     hourlyRate: 1150,
+    githubRepo: 'kystkassen/mobilbank',
     packages: [
-      { name: 'Arkitektur og opsætning', category: 'Analyse', responsible: 'jonas', status: 'inProgress', estimate: 160, start: -14, end: 14, spent: 60, remaining: 100 },
-      { name: 'Integrationer til kernebank', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: 600, start: -7, end: 35, spent: 30, remaining: 570 },
-      { name: 'App-MVP', category: 'Udvikling', responsible: 'freja', status: 'inProgress', estimate: 1400, start: 0, end: 49, spent: 0, remaining: 1400 },
-      { name: 'Test og sikkerhedsgodkendelse', category: 'Test', responsible: 'sara', status: 'notStarted', estimate: 300, start: 42, end: 63, spent: 0, remaining: 300 },
-      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 160, start: -14, end: 63, spent: 20, remaining: 140 },
+      { name: 'Arkitektur og opsætning', category: 'Analyse', responsible: 'jonas', status: 'inProgress', estimate: 160, github: 3, start: -14, end: 14, spent: 60, remaining: 100 },
+      { name: 'Integrationer til kernebank', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: 600, epic: 'Kernebank', github: 8, start: -7, end: 35, spent: 30, remaining: 570 },
+      { name: 'App-MVP', category: 'Udvikling', responsible: 'freja', status: 'inProgress', estimate: 1400, epic: 'App', github: 12, start: 0, end: 49, spent: 0, remaining: 1400 },
+      { name: 'Test og sikkerhedsgodkendelse', category: 'Test', responsible: 'sara', status: 'notStarted', estimate: 300, epic: 'App', github: 13, start: 42, end: 63, spent: 0, remaining: 300 },
+      { name: 'Support og småfejl', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: null, github: 21, start: -10, end: 63, spent: 9, remaining: 0 },
+      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 160, github: 1, start: -14, end: 63, spent: 20, remaining: 140 },
     ],
   },
   {
@@ -264,6 +274,7 @@ async function main() {
     prisma.timeEntry.deleteMany(),
     prisma.projectTitleRate.deleteMany(),
     prisma.workPackage.deleteMany(),
+    prisma.epic.deleteMany(),
     prisma.employee.deleteMany(),
     // Referenceprojekterne "Intern tid" og "Ferie" fra migrationen bevares
     prisma.project.deleteMany({ where: { id: { notIn: SYSTEM_PROJECT_IDS } } }),
@@ -310,6 +321,7 @@ async function main() {
         pricingModel: projectSeed.pricingModel,
         hourlyRate: projectSeed.hourlyRate ?? null,
         archivedAt: projectSeed.archivedDaysAgo ? daysFromToday(-projectSeed.archivedDaysAgo) : null,
+        githubRepo: projectSeed.githubRepo ?? null,
         titleRates: {
           create: (Object.entries(projectSeed.titleRates ?? {}) as [TitleKey, number][]).map(([key, hourlyRate]) => ({
             titleId: titles.get(key)!.id,
@@ -321,6 +333,14 @@ async function main() {
     });
     projectIds.set(projectSeed.name, project.id);
 
+    // Epics oprettes første gang, en pakke bruger dem
+    const epicIds = new Map<string, string>();
+    for (const pkg of projectSeed.packages) {
+      if (pkg.epic && !epicIds.has(pkg.epic)) {
+        epicIds.set(pkg.epic, (await prisma.epic.create({ data: { projectId: project.id, name: pkg.epic } })).id);
+      }
+    }
+
     for (const pkg of projectSeed.packages) {
       const startDate = daysFromToday(pkg.start);
       const endDate = daysFromToday(pkg.end);
@@ -330,6 +350,8 @@ async function main() {
           name: pkg.name,
           description: pkg.description,
           categoryId: categories.get(pkg.category)!,
+          epicId: pkg.epic ? epicIds.get(pkg.epic)! : null,
+          githubNumber: pkg.github ?? null,
           responsibleId: employees.get(pkg.responsible)!.id,
           status: pkg.status,
           estimateHours: pkg.estimate,
@@ -360,6 +382,9 @@ async function main() {
       }
       await prisma.timeEntry.createMany({ data: timeEntries });
       counts.timeEntries += timeEntries.length;
+
+      // Uden estimat er der ingen vurdering af resterende (#50)
+      if (pkg.estimate === null) continue;
 
       // Resterende: estimat ved opstart, en vurdering midtvejs og den seneste vurdering
       const finished = pkg.remaining === 0 && endDate < today;

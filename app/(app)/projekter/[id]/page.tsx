@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CollapsibleTableGroup } from '@/components/collapsible-table-group';
+import type { WorkPackageStatus } from '@/app/generated/prisma/client';
+import { CollapsibleTableGroup, CollapsibleTableSubgroup } from '@/components/collapsible-table-group';
 import { FigureCells, FigureHeaderCells, isOverBudget } from '@/components/figure-cells';
 import { PageHeader } from '@/components/page-header';
 import { Stat } from '@/components/stat';
 import { WorkPackageStatusBadge } from '@/components/work-package-status';
-import { getCategories } from '@/lib/data/categories';
-import { getEmployeeOptions, getTitles } from '@/lib/data/employees';
-import { type Figures, getProjectDetail } from '@/lib/data/projects';
+import { type CategoryOption, getCategories } from '@/lib/data/categories';
+import { type EmployeeOption, getEmployeeOptions, getTitles } from '@/lib/data/employees';
+import { type EpicOption, type Figures, getProjectDetail, type WorkPackageRow } from '@/lib/data/projects';
 import { formatHours, formatKr, formatShortDate } from '@/lib/format';
 import { ArchiveProjectButton, ProjectFormButton } from '../project-form';
 import { RegisterTimeButton } from './register-time';
@@ -16,8 +17,9 @@ import { SpentHoursButton } from './time-entries';
 import { WorkPackageFormButton } from './work-package-form';
 
 // Konklusionen i én sætning (BD: overskrift og lede siger konklusionen, ikke emnet)
-function conclusion(totals: Figures) {
-  if (totals.estimateHours === 0) return 'Projektet har ingen arbejdspakker endnu.';
+function conclusion(totals: Figures, workPackageCount: number) {
+  if (workPackageCount === 0) return 'Projektet har ingen arbejdspakker endnu.';
+  if (totals.estimateHours === 0) return 'Ingen af arbejdspakkerne har et estimat endnu.';
   if (totals.varianceHours > 0) return `Prognosen er ${formatHours(totals.varianceHours)} timer over estimatet.`;
   if (totals.varianceHours < 0) return `Prognosen er ${formatHours(-totals.varianceHours)} timer under estimatet.`;
   return 'Prognosen rammer estimatet.';
@@ -34,17 +36,18 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
   ]);
   // Ukendt id: vis not-found.tsx i stedet for en tom side
   if (!detail) notFound();
-  const { project, categories, totals } = detail;
+  const { project, workPackageCount, categories, totals } = detail;
   const over = isOverBudget(totals);
   const canRegister = !project.archivedAt;
   // Fravær (fx Ferie) har ingen arbejdspakker; det lægges ind i allokeringen (#44)
   const canAddPackages = canRegister && project.kind !== 'absence';
+  const rowProps = { projectId: project.id, canRegister, categoryOptions, epics: project.epics, employees, currentEmployeeId };
 
   return (
     <>
       <Link href="/projekter" className="bd-meta">← Alle projekter</Link>
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <PageHeader eyebrow={project.customer} title={project.name} lede={conclusion(totals)} />
+        <PageHeader eyebrow={project.customer} title={project.name} lede={conclusion(totals, workPackageCount)} />
         <div className="flex flex-wrap items-center gap-2">
           <ArchiveProjectButton projectId={project.id} archived={Boolean(project.archivedAt)} />
           {!project.archivedAt && <ProjectFormButton project={project} titles={titles} />}
@@ -76,7 +79,7 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
 
       {canAddPackages && (
         <div className="flex justify-end">
-          <WorkPackageFormButton projectId={project.id} categories={categoryOptions} employees={employees} />
+          <WorkPackageFormButton projectId={project.id} categories={categoryOptions} epics={project.epics} employees={employees} />
         </div>
       )}
 
@@ -94,77 +97,39 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
           <table className="bd-table">
             <thead>
               <tr>
-                <th>Kategori / arbejdspakke</th>
+                <th>Kategori / epic / arbejdspakke</th>
                 <th>Status</th>
                 <FigureHeaderCells />
                 <th>Ansvarlig</th>
                 <th><span className="sr-only">Handlinger</span></th>
               </tr>
             </thead>
-            {/* Én <tbody> pr. kategori: overskriftsrække med subtotal og arbejdspakkerne under */}
+            {/* Én <tbody> pr. kategori med subtotal. Derunder epics med deres pakker og til sidst pakkerne uden epic (#50). */}
             {categories.map((category) => (
               <CollapsibleTableGroup
-                key={category.categoryName}
-                label={category.categoryName}
-                meta={category.workPackages.length}
+                key={category.id}
+                label={category.name}
+                meta={category.workPackageCount}
                 severity={isOverBudget(category.totals) ? 'blocker' : undefined}
                 // Foldet sammen fra start: man ser kategoriernes subtotaler og folder ud efter behov
                 defaultOpen={false}
-                headerCells={
-                  <>
-                    <td><WorkPackageStatusBadge status={category.status} /></td>
-                    <FigureCells figures={category.totals} />
-                    <td />
-                    <td />
-                  </>
-                }
+                headerCells={<GroupCells status={category.status} totals={category.totals} />}
               >
-                {category.workPackages.map((wp) => (
-                  <tr key={wp.id} data-sev={isOverBudget(wp) ? 'blocker' : undefined}>
-                    <td className="bd-tree-child">
-                      {/* Klik på navnet for at redigere. Arkiverede projekter kan ikke ændres. */}
-                      <div>
-                        {canRegister ? (
-                          <WorkPackageFormButton
-                            projectId={project.id}
-                            workPackage={wp}
-                            categories={categoryOptions}
-                            employees={employees}
-                          />
-                        ) : (
-                          wp.name
-                        )}
-                      </div>
-                      <div className="bd-meta whitespace-nowrap">
-                        {formatShortDate(wp.startDate)} – {formatShortDate(wp.endDate)}
-                      </div>
-                    </td>
-                    <td><WorkPackageStatusBadge status={wp.status} /></td>
-                    <FigureCells
-                      figures={wp}
-                      spent={<SpentHoursButton workPackageId={wp.id} workPackageName={wp.name} hours={wp.spentHours} />}
-                      remaining={
-                        <RemainingButton
-                          workPackageId={wp.id}
-                          workPackageName={wp.name}
-                          hours={wp.remainingHours}
-                          updatedAt={wp.remainingUpdatedAt}
-                          canEdit={canRegister}
-                        />
-                      }
-                    />
-                    <td className="whitespace-nowrap">{wp.responsibleName}</td>
-                    <td className="text-right">
-                      {canRegister && (
-                        <RegisterTimeButton
-                          workPackageId={wp.id}
-                          workPackageName={wp.name}
-                          employees={employees}
-                          defaultEmployeeId={currentEmployeeId}
-                        />
-                      )}
-                    </td>
-                  </tr>
+                {category.epics.map((epic) => (
+                  <CollapsibleTableSubgroup
+                    key={epic.id}
+                    label={epic.name}
+                    meta={epic.workPackages.length}
+                    severity={isOverBudget(epic.totals) ? 'blocker' : undefined}
+                    headerCells={<GroupCells status={epic.status} totals={epic.totals} />}
+                  >
+                    {epic.workPackages.map((wp) => (
+                      <WorkPackageTableRow key={wp.id} wp={wp} level={2} {...rowProps} />
+                    ))}
+                  </CollapsibleTableSubgroup>
+                ))}
+                {category.withoutEpic.map((wp) => (
+                  <WorkPackageTableRow key={wp.id} wp={wp} level={1} {...rowProps} />
                 ))}
               </CollapsibleTableGroup>
             ))}
@@ -181,5 +146,93 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
         </div>
       )}
     </>
+  );
+}
+
+// Status og subtotal i en kategori- eller epic-række
+function GroupCells({ status, totals }: { status: WorkPackageStatus; totals: Figures }) {
+  return (
+    <>
+      <td><WorkPackageStatusBadge status={status} /></td>
+      <FigureCells figures={totals} />
+      <td />
+      <td />
+    </>
+  );
+}
+
+type RowProps = {
+  projectId: string;
+  canRegister: boolean;
+  categoryOptions: CategoryOption[];
+  epics: EpicOption[];
+  employees: EmployeeOption[];
+  currentEmployeeId: string | null;
+};
+
+// Én arbejdspakke. level 1 = direkte under kategorien, level 2 = under et epic.
+function WorkPackageTableRow({
+  wp,
+  level,
+  projectId,
+  canRegister,
+  categoryOptions,
+  epics,
+  employees,
+  currentEmployeeId,
+}: RowProps & { wp: WorkPackageRow; level: 1 | 2 }) {
+  return (
+    <tr data-sev={isOverBudget(wp) ? 'blocker' : undefined}>
+      <td className={level === 2 ? 'bd-tree-child bd-tree-child--2' : 'bd-tree-child'}>
+        {/* Klik på navnet for at redigere. Arkiverede projekter kan ikke ændres. */}
+        <div>
+          {canRegister ? (
+            <WorkPackageFormButton
+              projectId={projectId}
+              workPackage={wp}
+              categories={categoryOptions}
+              epics={epics}
+              employees={employees}
+            />
+          ) : (
+            wp.name
+          )}
+        </div>
+        <div className="bd-meta flex flex-wrap items-center gap-2 whitespace-nowrap">
+          {wp.githubNumber !== null && <span className="bd-id">#{wp.githubNumber}</span>}
+          {(wp.startDate || wp.endDate) && (
+            <span>
+              {wp.startDate ? formatShortDate(wp.startDate) : '…'} – {wp.endDate ? formatShortDate(wp.endDate) : '…'}
+            </span>
+          )}
+        </div>
+      </td>
+      <td><WorkPackageStatusBadge status={wp.status} /></td>
+      <FigureCells
+        figures={wp}
+        estimated={wp.estimated}
+        spent={<SpentHoursButton workPackageId={wp.id} workPackageName={wp.name} hours={wp.spentHours} />}
+        remaining={
+          <RemainingButton
+            workPackageId={wp.id}
+            workPackageName={wp.name}
+            hours={wp.remainingHours}
+            updatedAt={wp.remainingUpdatedAt}
+            canEdit={canRegister}
+          />
+        }
+      />
+      <td className="whitespace-nowrap">{wp.responsibleName ?? <span className="bd-meta">–</span>}</td>
+      <td className="text-right">
+        {canRegister && (
+          <RegisterTimeButton
+            workPackageId={wp.id}
+            workPackageName={wp.name}
+            employees={employees}
+            defaultEmployeeId={currentEmployeeId}
+          />
+        )}
+      </td>
+    </tr>
   );
 }

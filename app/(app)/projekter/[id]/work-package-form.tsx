@@ -5,26 +5,29 @@ import { FormDialogButton } from '@/components/form-dialog';
 import { WORK_PACKAGE_STATUSES } from '@/components/work-package-status';
 import type { CategoryOption } from '@/lib/data/categories';
 import type { EmployeeOption } from '@/lib/data/employees';
-import type { WorkPackageRow } from '@/lib/data/projects';
+import type { EpicOption, WorkPackageRow } from '@/lib/data/projects';
 import { formatHours } from '@/lib/format';
-import { NEW_CATEGORY } from '@/lib/work-package';
+import { NEW_CATEGORY, NEW_EPIC } from '@/lib/work-package';
 import { deleteWorkPackage, saveWorkPackage } from './actions';
 
 // Datoer fra @db.Date er midnat UTC, så "YYYY-MM-DD" tages fra ISO-strengen og ikke fra lokal tid
-const dateValue = (date: Date | undefined) => (date ? date.toISOString().slice(0, 10) : '');
+const dateValue = (date: Date | null | undefined) => (date ? date.toISOString().slice(0, 10) : '');
 
 type Props = {
   projectId: string;
   /** Uden workPackage oprettes en ny; med redigeres den */
   workPackage?: WorkPackageRow;
   categories: CategoryOption[];
+  /** Projektets epics (#50) */
+  epics: EpicOption[];
   employees: EmployeeOption[];
 };
 
 // Opret eller redigér en arbejdspakke (#14). Ved redigering er triggeren pakkens navn.
-export function WorkPackageFormButton({ projectId, workPackage, categories, employees }: Props) {
+export function WorkPackageFormButton({ projectId, workPackage, categories, epics, employees }: Props) {
   const id = useId();
   const [category, setCategory] = useState(workPackage?.categoryId ?? '');
+  const [epic, setEpic] = useState(workPackage?.epicId ?? '');
 
   return (
     <FormDialogButton
@@ -84,14 +87,37 @@ export function WorkPackageFormButton({ projectId, workPackage, categories, empl
 
         <div className="bd-field">
           <label className="bd-label" htmlFor={`${id}-responsible`}>Ansvarlig</label>
-          <select id={`${id}-responsible`} name="responsibleId" className="bd-select" defaultValue={workPackage?.responsibleId ?? ''} required>
-            <option value="" disabled>Vælg ansvarlig</option>
+          <select id={`${id}-responsible`} name="responsibleId" className="bd-select" defaultValue={workPackage?.responsibleId ?? ''}>
+            <option value="">Ingen ansvarlig endnu</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>{e.name}</option>
             ))}
           </select>
           <span className="bd-hint">Den, man spørger. Hvem der arbejder på pakken, styres i allokeringen.</span>
         </div>
+      </div>
+
+      <div className="bd-field">
+        <label className="bd-label" htmlFor={`${id}-epic`}>Epic</label>
+        <select id={`${id}-epic`} name="epicId" className="bd-select" value={epic} onChange={(event) => setEpic(event.target.value)}>
+          <option value="">Intet epic</option>
+          {epics.map((e) => (
+            <option key={e.id} value={e.id}>{e.name}</option>
+          ))}
+          <option value={NEW_EPIC}>+ Nyt epic …</option>
+        </select>
+        {epic === NEW_EPIC && (
+          <input
+            name="newEpic"
+            className="bd-input"
+            placeholder="Navn på det nye epic"
+            aria-label="Navn på det nye epic"
+            required
+            autoFocus
+            autoComplete="off"
+          />
+        )}
+        <span className="bd-hint">Valgfri. Løbende pakker som projektledelse hører typisk ikke til et epic.</span>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">
@@ -113,21 +139,23 @@ export function WorkPackageFormButton({ projectId, workPackage, categories, empl
             className="bd-input"
             min={0.25}
             step={0.25}
-            defaultValue={workPackage?.estimateHours}
-            required
+            // Uden estimat er estimateHours 0, så feltet skal stå tomt
+            defaultValue={workPackage?.estimated ? workPackage.estimateHours : undefined}
           />
         </div>
         <div className="bd-field">
           <label className="bd-label" htmlFor={`${id}-start`}>Start</label>
-          <input id={`${id}-start`} name="startDate" type="date" className="bd-input" defaultValue={dateValue(workPackage?.startDate)} required />
+          <input id={`${id}-start`} name="startDate" type="date" className="bd-input" defaultValue={dateValue(workPackage?.startDate)} />
         </div>
         <div className="bd-field">
           <label className="bd-label" htmlFor={`${id}-end`}>Slut</label>
-          <input id={`${id}-end`} name="endDate" type="date" className="bd-input" defaultValue={dateValue(workPackage?.endDate)} required />
+          <input id={`${id}-end`} name="endDate" type="date" className="bd-input" defaultValue={dateValue(workPackage?.endDate)} />
         </div>
       </div>
 
       <p className="bd-hint m-0">
+        Ansvarlig, estimat og datoer er valgfrie. Uden estimat er al tid på pakken over budget og
+        markeres med rødt. Uden slutdato er den ikke med i bemandingstjekket.{' '}
         {workPackage
           ? 'Et ændret estimat ændrer ikke resterende. Resterende er udviklerens vurdering og opdateres ved at klikke på tallet.'
           : 'Resterende starter med at være lig estimatet.'}
