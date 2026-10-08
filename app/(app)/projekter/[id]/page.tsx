@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import type { WorkPackageStatus } from '@/app/generated/prisma/client';
 import { CollapsibleTableGroup, CollapsibleTableSubgroup } from '@/components/collapsible-table-group';
@@ -12,7 +13,7 @@ import { type EpicOption, type Figures, getProjectDetail, type WorkPackageRow } 
 import { formatDateTime, formatHours, formatKr, formatShortDate } from '@/lib/format';
 import type { GithubPullRequest } from '@/lib/github-sync';
 import { ArchiveProjectButton, ProjectFormButton } from '../project-form';
-import { GithubSyncButton } from './github-sync';
+import { CreateGithubIssueButton, GithubSyncButton } from './github-sync';
 import { RegisterTimeButton } from './register-time';
 import { RemainingButton } from './remaining';
 import { SpentHoursButton } from './time-entries';
@@ -103,7 +104,13 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
             <span />
           )}
           {canAddPackages && (
-            <WorkPackageFormButton projectId={project.id} categories={categoryOptions} epics={project.epics} employees={employees} />
+            <WorkPackageFormButton
+              projectId={project.id}
+              githubRepo={project.githubRepo}
+              categories={categoryOptions}
+              epics={project.epics}
+              employees={employees}
+            />
           )}
         </div>
       )}
@@ -146,7 +153,20 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
                     label={epic.name}
                     meta={epic.workPackages.length}
                     severity={isOverBudget(epic.totals) ? 'blocker' : undefined}
-                    headerCells={<GroupCells status={epic.status} totals={epic.totals} />}
+                    headerCells={
+                      <GroupCells
+                        status={epic.status}
+                        totals={epic.totals}
+                        // Epicets issue, eller en knap til at oprette det, når epicet kun findes i dashboardet (#25)
+                        actions={
+                          epic.githubNumber !== null ? (
+                            <GithubLink repo={project.githubRepo} path={`issues/${epic.githubNumber}`} label={`#${epic.githubNumber}`} state={null} />
+                          ) : (
+                            project.githubRepo && canRegister && <CreateGithubIssueButton kind="epic" id={epic.id} projectId={project.id} />
+                          )
+                        }
+                      />
+                    }
                   >
                     {epic.workPackages.map((wp) => (
                       <WorkPackageTableRow key={wp.id} wp={wp} level={2} {...rowProps} />
@@ -174,14 +194,14 @@ export default async function ProjectPage({ params }: PageProps<'/projekter/[id]
   );
 }
 
-// Status og subtotal i en kategori- eller epic-række
-function GroupCells({ status, totals }: { status: WorkPackageStatus; totals: Figures }) {
+// Status og subtotal i en kategori- eller epic-række. actions står i sidste kolonne.
+function GroupCells({ status, totals, actions }: { status: WorkPackageStatus; totals: Figures; actions?: ReactNode }) {
   return (
     <>
       <td><WorkPackageStatusBadge status={status} /></td>
       <FigureCells figures={totals} />
       <td />
-      <td />
+      <td className="text-right font-normal">{actions}</td>
     </>
   );
 }
@@ -216,6 +236,7 @@ function WorkPackageTableRow({
           {canRegister ? (
             <WorkPackageFormButton
               projectId={projectId}
+              githubRepo={githubRepo}
               workPackage={wp}
               categories={categoryOptions}
               epics={epics}
@@ -226,6 +247,10 @@ function WorkPackageTableRow({
           )}
         </div>
         <div className="bd-meta flex flex-wrap items-center gap-2 whitespace-nowrap">
+          {/* Uden issue: opret det på GitHub (#25) */}
+          {wp.githubNumber === null && githubRepo && canRegister && (
+            <CreateGithubIssueButton kind="workPackage" id={wp.id} projectId={projectId} />
+          )}
           {wp.githubNumber !== null && (
             <GithubLink repo={githubRepo} path={`issues/${wp.githubNumber}`} label={`#${wp.githubNumber}`} state={wp.githubState === 'closed' ? 'lukket' : null} />
           )}

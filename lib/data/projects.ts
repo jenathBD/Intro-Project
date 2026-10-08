@@ -28,6 +28,8 @@ export type WorkPackageRow = Figures & {
   categoryName: string;
   epicId: string | null;
   epicName: string | null;
+  /** Epicets issuenummer. null = epicet findes kun i dashboardet (#25) */
+  epicGithubNumber: number | null;
   /** false = pakken har intet estimat. estimateHours er så 0, så summerne stadig går op (#50). */
   estimated: boolean;
   responsibleId: string | null;
@@ -49,6 +51,7 @@ export type WorkPackageRow = Figures & {
 export type EpicGroup = {
   id: string;
   name: string;
+  githubNumber: number | null;
   status: WorkPackageStatus;
   workPackages: WorkPackageRow[];
   totals: Figures;
@@ -97,6 +100,7 @@ function queryWorkPackages(filter: Prisma.Sql) {
       c.name AS "categoryName",
       wp."epicId",
       ep.name AS "epicName",
+      ep."githubNumber" AS "epicGithubNumber",
       wp."responsibleId",
       e.name AS "responsibleName",
       wp.status::text AS status,
@@ -179,6 +183,7 @@ function groupByCategoryAndEpic(workPackages: WorkPackageRow[]): CategoryGroup[]
     ).map((epicRows) => ({
       id: epicRows[0].epicId!,
       name: epicRows[0].epicName!,
+      githubNumber: epicRows[0].epicGithubNumber,
       status: groupStatus(epicRows.map((wp) => wp.status)),
       workPackages: epicRows,
       totals: sumFigures(epicRows),
