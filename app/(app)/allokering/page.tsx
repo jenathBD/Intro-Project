@@ -47,7 +47,14 @@ export default async function AllocationPage({ searchParams }: PageProps<'/allok
         </div>
       ) : (
         <div className="bd-table-wrap">
-          <table className="bd-table">
+          {/* Faste kolonnebredder, så kolonnerne ikke hopper, når en medarbejder foldes ud */}
+          <table className="bd-table bd-table--fixed">
+            <colgroup>
+              <col className="bd-col-label" />
+              {weeks.map((week) => (
+                <col key={week.getTime()} />
+              ))}
+            </colgroup>
             <thead>
               <tr>
                 <th>Medarbejder / projekt</th>
