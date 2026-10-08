@@ -25,22 +25,31 @@ export type WorkPackageRow = Figures & {
   description: string | null;
   categoryId: string;
   categoryName: string;
-  responsibleId: string;
-  responsibleName: string;
+  epicId: string | null;
+  epicName: string | null;
+  /** false = pakken har intet estimat. estimateHours er så 0, så summerne stadig går op (#50). */
+  estimated: boolean;
+  responsibleId: string | null;
+  responsibleName: string | null;
   status: WorkPackageStatus;
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | null;
+  endDate: Date | null;
+  /** Issuets nummer i projektets repo (#50) */
+  githubNumber: number | null;
   /** Tidspunkt for den seneste resterende-opdatering. null, hvis der aldrig er givet en vurdering */
   remainingUpdatedAt: Date | null;
 };
 
-/** Arbejdspakkerne i én kategori med subtotal og udledt status */
-export type CategoryGroup = {
-  categoryName: string;
+/** Arbejdspakkerne i én kategori eller ét epic med subtotal og udledt status */
+export type WorkPackageGroup = {
+  key: string;
+  label: string;
   status: WorkPackageStatus;
   workPackages: WorkPackageRow[];
   totals: Figures;
 };
+
+export type EpicOption = { id: string; name: string };
 
 type RawWorkPackage = Omit<WorkPackageRow, 'forecastHours' | 'varianceHours'> & { projectId: string };
 
@@ -69,12 +78,17 @@ function queryWorkPackages(filter: Prisma.Sql) {
       wp.description,
       wp."categoryId",
       c.name AS "categoryName",
+      wp."epicId",
+      ep.name AS "epicName",
       wp."responsibleId",
       e.name AS "responsibleName",
       wp.status::text AS status,
       wp."startDate",
       wp."endDate",
-      wp."estimateHours"::float8 AS "estimateHours",
+      wp."githubNumber",
+      -- Uden estimat tæller pakken som 0 t i estimatet, men dens brugte tid tæller med i prognosen
+      wp."estimateHours" IS NOT NULL AS estimated,
+      COALESCE(wp."estimateHours", 0)::float8 AS "estimateHours",
       COALESCE(s.hours, 0)::float8 AS "spentHours",
       COALESCE(lr."remainingHours", 0)::float8 AS "remainingHours",
       lr."createdAt" AS "remainingUpdatedAt",
@@ -82,11 +96,12 @@ function queryWorkPackages(filter: Prisma.Sql) {
     FROM work_package wp
     JOIN project p ON p.id = wp."projectId"
     JOIN work_package_category c ON c.id = wp."categoryId"
-    JOIN employee e ON e.id = wp."responsibleId"
+    LEFT JOIN employee e ON e.id = wp."responsibleId"
+    LEFT JOIN epic ep ON ep.id = wp."epicId"
     LEFT JOIN spent s ON s."workPackageId" = wp.id
     LEFT JOIN latest_remaining lr ON lr."workPackageId" = wp.id
     WHERE ${filter}
-    ORDER BY wp."startDate", wp.name`;
+    ORDER BY wp."startDate" NULLS LAST, wp.name`;
 }
 
 function withForecast<T extends Omit<Figures, 'forecastHours' | 'varianceHours'>>(row: T): T & Figures {
@@ -124,31 +139,40 @@ export async function getProjectOverview({ archived = false } = {}): Promise<Pro
   }));
 }
 
-// Grupperer arbejdspakker pr. kategori. Rækkerne er sorteret efter startdato, så kategorierne
+/** Pakker uden epic samles i en gruppe til sidst */
+export const NO_EPIC_LABEL = 'Uden epic';
+
+// Grupperer arbejdspakker pr. kategori eller epic. Rækkerne er sorteret efter startdato, så grupperne
 // kommer i den rækkefølge, deres første pakke starter (typisk Analyse og Design før Udvikling).
-function groupByCategory(workPackages: WorkPackageRow[]): CategoryGroup[] {
-  const groups = new Map<string, WorkPackageRow[]>();
+function groupBy(workPackages: WorkPackageRow[], by: 'category' | 'epic'): WorkPackageGroup[] {
+  const groups = new Map<string, { label: string; rows: WorkPackageRow[] }>();
   for (const wp of workPackages) {
-    groups.set(wp.categoryName, [...(groups.get(wp.categoryName) ?? []), wp]);
+    const [key, label] = by === 'category' ? [wp.categoryId, wp.categoryName] : [wp.epicId ?? '', wp.epicName ?? NO_EPIC_LABEL];
+    const group = groups.get(key) ?? { label, rows: [] };
+    group.rows.push(wp);
+    groups.set(key, group);
   }
-  return [...groups].map(([categoryName, rows]) => ({
-    categoryName,
-    status: categoryStatus(rows.map((wp) => wp.status)),
+  // "Uden epic" (nøglen '') står sidst
+  const sorted = [...groups].sort(([a], [b]) => Number(a === '') - Number(b === ''));
+  return sorted.map(([key, { label, rows }]) => ({
+    key,
+    label,
+    status: groupStatus(rows.map((wp) => wp.status)),
     workPackages: rows,
     totals: sumFigures(rows),
   }));
 }
 
-// Kategoriens status udledes af arbejdspakkerne og gemmes ikke, så den aldrig kan modsige dem.
-// "Afventer" vinder over "I gang", så en blokeret pakke er synlig, også når kategorien er foldet sammen.
-function categoryStatus(statuses: WorkPackageStatus[]): WorkPackageStatus {
+// Gruppens status udledes af arbejdspakkerne og gemmes ikke, så den aldrig kan modsige dem.
+// "Afventer" vinder over "I gang", så en blokeret pakke er synlig, også når gruppen er foldet sammen.
+function groupStatus(statuses: WorkPackageStatus[]): WorkPackageStatus {
   if (statuses.every((status) => status === 'done')) return 'done';
   if (statuses.every((status) => status === 'notStarted')) return 'notStarted';
   if (statuses.includes('onHold')) return 'onHold';
   return 'inProgress';
 }
 
-// Ét projekt med arbejdspakker grupperet pr. kategori (#12). null, hvis id'et ikke findes.
+// Ét projekt med arbejdspakker grupperet pr. kategori (#12) og pr. epic (#50). null, hvis id'et ikke findes.
 export async function getProjectDetail(id: string) {
   await requireSession();
 
@@ -163,6 +187,7 @@ export async function getProjectDetail(id: string) {
       pricingModel: true,
       hourlyRate: true,
       titleRates: { select: { titleId: true, hourlyRate: true } },
+      epics: { select: { id: true, name: true }, orderBy: { name: 'asc' } },
     },
   });
   if (!found) return null;
@@ -177,7 +202,13 @@ export async function getProjectDetail(id: string) {
   const rawWorkPackages = await queryWorkPackages(Prisma.sql`wp."projectId" = ${id}`);
   const workPackages: WorkPackageRow[] = rawWorkPackages.map(({ projectId: _projectId, ...wp }) => withForecast(wp));
 
-  return { project, categories: groupByCategory(workPackages), totals: sumFigures(workPackages) };
+  return {
+    project,
+    workPackageCount: workPackages.length,
+    byCategory: groupBy(workPackages, 'category'),
+    byEpic: groupBy(workPackages, 'epic'),
+    totals: sumFigures(workPackages),
+  };
 }
 
 /** Projektets felter til redigeringsformularen (#14) */

@@ -22,6 +22,8 @@ export async function getStaffingOverview(): Promise<{ thisWeek: Date; projects:
         name: true,
         customer: true,
         workPackages: {
+          // Uden slutdato har pakken ingen deadline og indgår ikke (#50)
+          where: { endDate: { not: null } },
           select: {
             name: true,
             endDate: true,
@@ -44,7 +46,7 @@ export async function getStaffingOverview(): Promise<{ thisWeek: Date; projects:
     );
     const packages = project.workPackages.map((wp) => ({
       name: wp.name,
-      deadlineWeek: mondayOf(wp.endDate),
+      deadlineWeek: mondayOf(wp.endDate!),
       remainingHours: Number(wp.remainingUpdates[0]?.remainingHours ?? 0),
       done: wp.status === 'done',
     }));

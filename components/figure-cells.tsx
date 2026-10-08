@@ -21,23 +21,40 @@ export function FigureHeaderCells() {
   );
 }
 
-/** spent og remaining erstatter indholdet i "Brugt"- og "Resterende"-cellerne, fx med knapper der åbner detaljer */
-export function FigureCells({ figures, spent, remaining }: { figures: Figures; spent?: ReactNode; remaining?: ReactNode }) {
+/**
+ * spent og remaining erstatter indholdet i "Brugt"- og "Resterende"-cellerne, fx med knapper der åbner detaljer.
+ * estimated = false: arbejdspakken har intet estimat (#50). Estimatet vises som "–", og brugt markeres ikke.
+ */
+export function FigureCells({
+  figures,
+  spent,
+  remaining,
+  estimated = true,
+}: {
+  figures: Figures;
+  spent?: ReactNode;
+  remaining?: ReactNode;
+  estimated?: boolean;
+}) {
   // Rødt og fedt som afvigelsen. Forklaringen står som skjult tekst til skærmlæsere, som ikke kan se farven.
-  const spentWarning = isSpentOverEstimate(figures)
+  const spentWarning = estimated && isSpentOverEstimate(figures)
     ? `Brugt er ${formatHours(figures.spentHours - figures.estimateHours)} t over estimatet på ${formatHours(figures.estimateHours)} t.`
     : undefined;
 
   return (
     <>
-      <td className="num">{formatHours(figures.estimateHours)}</td>
+      <td className={estimated ? 'num' : 'num bd-meta'}>
+        {estimated ? formatHours(figures.estimateHours) : '–'}
+        {!estimated && <span className="sr-only">Intet estimat</span>}
+      </td>
       <td className={spentWarning ? 'num bd-over-estimate' : 'num'}>
         {spent ?? formatHours(figures.spentHours)}
         {spentWarning && <span className="sr-only"> {spentWarning}</span>}
       </td>
       <td className="num">{remaining ?? formatHours(figures.remainingHours)}</td>
       <td className="num">{formatHours(figures.forecastHours)}</td>
-      <td className={isOverBudget(figures) ? 'num font-semibold text-bd-danger' : 'num'}>
+      {/* Uden estimat er hele prognosen afvigelse. Den tæller med i summen, men pakken markeres ikke som over budget. */}
+      <td className={estimated && isOverBudget(figures) ? 'num font-semibold text-bd-danger' : 'num'}>
         {formatSignedHours(figures.varianceHours)}
       </td>
     </>

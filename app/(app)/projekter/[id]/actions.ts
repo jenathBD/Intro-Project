@@ -7,7 +7,7 @@ import { getRemainingHistory } from '@/lib/data/remaining';
 import { getTimeEntries } from '@/lib/data/time-entries';
 import { prisma } from '@/lib/db';
 import { resolveHourlyRate } from '@/lib/pricing';
-import { NEW_CATEGORY } from '@/lib/work-package';
+import { NEW_CATEGORY, NEW_EPIC } from '@/lib/work-package';
 import { requireSession } from '@/lib/session';
 
 export type RegisterTimeState = { ok?: boolean; error?: string; message?: string };
@@ -121,9 +121,13 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
   const description = String(formData.get('description') ?? '').trim() || null;
   const categoryValue = String(formData.get('categoryId') ?? '');
   const newCategory = String(formData.get('newCategory') ?? '').trim();
-  const responsibleId = String(formData.get('responsibleId') ?? '');
+  const epicValue = String(formData.get('epicId') ?? '');
+  const newEpic = String(formData.get('newEpic') ?? '').trim();
+  // Ansvarlig, estimat og datoer er valgfrie (#50). Tom = null.
+  const responsibleId = String(formData.get('responsibleId') ?? '') || null;
   const status = String(formData.get('status') ?? '') as WorkPackageStatus;
-  const estimateHours = Number(String(formData.get('estimateHours') ?? '').replace(',', '.'));
+  const estimateValue = String(formData.get('estimateHours') ?? '').trim();
+  const estimateHours = estimateValue ? Number(estimateValue.replace(',', '.')) : null;
   const startValue = String(formData.get('startDate') ?? '');
   const endValue = String(formData.get('endDate') ?? '');
 
@@ -131,30 +135,37 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
   if (!name) return { error: 'Skriv arbejdspakkens navn.' };
   if (!categoryValue) return { error: 'Vælg en kategori.' };
   if (categoryValue === NEW_CATEGORY && !newCategory) return { error: 'Skriv navnet på den nye kategori.' };
-  if (!responsibleId) return { error: 'Vælg den ansvarlige.' };
+  if (epicValue === NEW_EPIC && !newEpic) return { error: 'Skriv navnet på det nye epic.' };
   if (!STATUSES.includes(status)) return { error: 'Vælg en status.' };
-  if (!Number.isFinite(estimateHours) || estimateHours < 0.25 || estimateHours > 99999) {
-    return { error: 'Estimatet skal være mindst 0,25 timer.' };
+  if (estimateHours !== null) {
+    if (!Number.isFinite(estimateHours) || estimateHours < 0.25 || estimateHours > 99999) {
+      return { error: 'Estimatet skal være mindst 0,25 timer. Lad feltet stå tomt, hvis pakken ikke er estimeret.' };
+    }
+    if (Math.round(estimateHours * 4) !== estimateHours * 4) return { error: 'Estimatet angives i kvarter, fx 40 eller 12,5.' };
   }
-  if (Math.round(estimateHours * 4) !== estimateHours * 4) return { error: 'Estimatet angives i kvarter, fx 40 eller 12,5.' };
   // "YYYY-MM-DD" fortolkes som midnat UTC, som @db.Date forventer
   const isDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
-  if (!isDate(startValue) || !isDate(endValue)) return { error: 'Vælg både start- og slutdato.' };
-  const startDate = new Date(startValue);
-  const endDate = new Date(endValue);
-  if (endDate < startDate) return { error: 'Slutdatoen kan ikke ligge før startdatoen.' };
+  if ((startValue && !isDate(startValue)) || (endValue && !isDate(endValue))) return { error: 'Vælg en gyldig dato.' };
+  const startDate = startValue ? new Date(startValue) : null;
+  const endDate = endValue ? new Date(endValue) : null;
+  if (startDate && endDate && endDate < startDate) return { error: 'Slutdatoen kan ikke ligge før startdatoen.' };
 
-  const [project, responsible, category] = await Promise.all([
+  const [project, responsible, category, epic] = await Promise.all([
     prisma.project.findUnique({ where: { id: projectId }, select: { archivedAt: true } }),
-    prisma.employee.findUnique({ where: { id: responsibleId }, select: { id: true } }),
+    responsibleId ? prisma.employee.findUnique({ where: { id: responsibleId }, select: { id: true } }) : null,
     categoryValue === NEW_CATEGORY
       ? null
       : prisma.workPackageCategory.findUnique({ where: { id: categoryValue }, select: { id: true } }),
+    // Et epic skal høre til samme projekt som pakken
+    epicValue && epicValue !== NEW_EPIC
+      ? prisma.epic.findFirst({ where: { id: epicValue, projectId }, select: { id: true } })
+      : null,
   ]);
   if (!project) return { error: 'Projektet findes ikke længere. Genindlæs siden.' };
   if (project.archivedAt) return { error: 'Projektet er arkiveret. Genaktivér det for at ændre arbejdspakker.' };
-  if (!responsible) return { error: 'Den ansvarlige findes ikke længere. Genindlæs siden.' };
+  if (responsibleId && !responsible) return { error: 'Den ansvarlige findes ikke længere. Genindlæs siden.' };
   if (categoryValue !== NEW_CATEGORY && !category) return { error: 'Kategorien findes ikke længere. Genindlæs siden.' };
+  if (epicValue && epicValue !== NEW_EPIC && !epic) return { error: 'Epicet findes ikke længere. Genindlæs siden.' };
 
   // Ny kategori: upsert på det unikke navn, så to, der opretter "Drift" samtidig, får den samme
   const categoryId =
@@ -162,18 +173,28 @@ export async function saveWorkPackage(_prev: FormState, formData: FormData): Pro
       ? (await prisma.workPackageCategory.upsert({ where: { name: newCategory }, update: {}, create: { name: newCategory } })).id
       : categoryValue;
 
-  const data = { name, description, categoryId, responsibleId, status, estimateHours, startDate, endDate };
+  // Nyt epic oprettes på projektet. Navne er ikke unikke, for i GitHub kan to epics godt hedde det samme.
+  const epicId =
+    epicValue === NEW_EPIC
+      ? (await prisma.epic.create({ data: { projectId, name: newEpic }, select: { id: true } })).id
+      : epicValue || null;
+
+  const data = { name, description, categoryId, epicId, responsibleId, status, estimateHours, startDate, endDate };
 
   if (id) {
     const updated = await prisma.workPackage.updateMany({ where: { id, projectId }, data });
     if (updated.count === 0) return { error: 'Arbejdspakken findes ikke længere. Genindlæs siden.' };
   } else {
     // En ny pakke får sin første vurdering af resterende = estimatet. Ellers ville prognosen vise den som færdig.
+    // Uden estimat er der intet at starte fra; resterende sættes, når nogen vurderer det.
     await prisma.workPackage.create({
       data: {
         ...data,
         projectId,
-        remainingUpdates: { create: { remainingHours: estimateHours, comment: 'Estimat ved oprettelse', userId: session.user.id } },
+        remainingUpdates:
+          estimateHours === null
+            ? undefined
+            : { create: { remainingHours: estimateHours, comment: 'Estimat ved oprettelse', userId: session.user.id } },
       },
     });
   }
