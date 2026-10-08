@@ -90,6 +90,13 @@
   .bd-table td.bd-over-estimate { color: var(--bd-danger); font-weight: 600; }
   .bd-table td.bd-over-estimate .bd-link-button { color: inherit; font-weight: inherit; }
 
+  /* Tabeller med faste kolonnebredder: bredderne bestemmes af <colgroup> og ikke af indholdet,
+     så kolonnerne ikke hopper, når rækker foldes ud. På smalle skærme scroller tabellen i sin ramme. */
+  .bd-table.bd-table--fixed { table-layout: fixed; min-width: 48rem; }
+  .bd-table--fixed col.bd-col-label { width: 20rem; }
+  /* Kun første kolonne afskæres med …; de andre må ikke klippe fokusringen (box-shadow) på felterne af */
+  .bd-table--fixed td:first-child, .bd-table--fixed th:first-child { overflow: hidden; text-overflow: ellipsis; }
+
   /* Redigerbare celler i tabeller (fx FTE i ugegridet, #17): smalle, højrestillede felter */
   .bd-input.bd-input--cell {
     width: 4.5rem; padding: 4px var(--bd-s2); text-align: right; font-variant-numeric: tabular-nums;
