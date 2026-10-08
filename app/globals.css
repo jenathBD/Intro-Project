@@ -96,6 +96,10 @@
   .bd-table--fixed col.bd-col-label { width: 20rem; }
   /* Kun første kolonne afskæres med …; de andre må ikke klippe fokusringen (box-shadow) på felterne af */
   .bd-table--fixed td:first-child, .bd-table--fixed th:first-child { overflow: hidden; text-overflow: ellipsis; }
+  /* Kolonnerne efter den første er centreret, også tal og felter, så de står på linje under ugeoverskriften */
+  .bd-table.bd-table--fixed th:not(:first-child),
+  .bd-table.bd-table--fixed td:not(:first-child) { text-align: center; }
+  .bd-table--fixed .bd-input.bd-input--cell { text-align: center; }
 
   /* Redigerbare celler i tabeller (fx FTE i ugegridet, #17): smalle, højrestillede felter */
   .bd-input.bd-input--cell {
