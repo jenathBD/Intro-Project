@@ -90,6 +90,13 @@
   .bd-table td.bd-over-estimate { color: var(--bd-danger); font-weight: 600; }
   .bd-table td.bd-over-estimate .bd-link-button { color: inherit; font-weight: inherit; }
 
+  /* Redigerbare celler i tabeller (fx FTE i ugegridet, #17): smalle, højrestillede felter */
+  .bd-input.bd-input--cell {
+    width: 4.5rem; padding: 4px var(--bd-s2); text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .bd-input.bd-input--cell::placeholder { color: var(--bd-muted); }
+  .bd-select.bd-select--sm { width: auto; padding: 4px var(--bd-s2); font-size: var(--bd-fs-sm); }
+
   /* Total-række nederst i en tabel (#12) */
   .bd-table tfoot td { border-top: 2px solid var(--bd-line); border-bottom: 0; font-weight: 600; }
 

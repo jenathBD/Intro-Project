@@ -5,6 +5,7 @@
 
 import 'dotenv/config';
 import type { PricingModel, Prisma, WorkPackageStatus } from '@/app/generated/prisma/client';
+import { FULL_TIME_HOURS } from '@/lib/capacity';
 import { prisma } from '@/lib/db';
 import { resolveHourlyRate } from '@/lib/pricing';
 
@@ -189,8 +190,8 @@ const ALLOCATIONS: { employee: EmployeeKey; project: string; fte: number; from: 
   { employee: 'mette', project: 'Kundeportal', fte: 0.2, from: -2, to: 3 },
   { employee: 'mette', project: 'Booking-app', fte: 0.2, from: -2, to: 8 },
   { employee: 'mette', project: 'Beboerportal', fte: 0.4, from: -2, to: 8 },
-  { employee: 'sara', project: 'Booking-app', fte: 0.5, from: -2, to: -1 },
-  { employee: 'sara', project: 'Beboerportal', fte: 0.5, from: -2, to: 5 },
+  { employee: 'sara', project: 'Booking-app', fte: 0.4, from: -2, to: -1 }, // Sara er på 30 t = 0,8 FTE
+  { employee: 'sara', project: 'Beboerportal', fte: 0.4, from: -2, to: 5 },
   { employee: 'ali', project: 'Kundeportal', fte: 0.2, from: -2, to: 0 },
   { employee: 'ali', project: 'Booking-app', fte: 0.4, from: -2, to: 8 },
   { employee: 'ali', project: 'Beboerportal', fte: 0.4, from: -2, to: 8 },
@@ -384,7 +385,10 @@ async function main() {
   extraEmployeeIds.forEach((employeeId, i) => {
     const pattern = EXTRA_PATTERNS[i % EXTRA_PATTERNS.length];
     const lastWeek = i % 4 === 3 ? 4 : 8;
-    pattern.forEach((fte, j) => {
+    // Mønstrene er for fuld tid. På deltid skaleres de, så 30 t (0,8 FTE) fx får 0,5 + 0,3 i stedet for 0,6 + 0,4.
+    const scale = EXTRA_EMPLOYEES[i].weeklyCapacity / FULL_TIME_HOURS;
+    pattern.forEach((fullTimeFte, j) => {
+      const fte = Math.round(fullTimeFte * scale * 10) / 10;
       const projectId = activeProjects[(i + j) % activeProjects.length];
       for (const weekStart of weeksFrom(-2, lastWeek)) allocations.push({ employeeId, projectId, weekStart, fte });
     });
@@ -399,12 +403,29 @@ async function main() {
     }
   }
 
-  await prisma.allocation.createMany({ data: allocations });
+  // 4. Kun allokeringer inden for projektets periode: fra ugen, hvor første pakke starter, til ugen, hvor sidste slutter.
+  //    Ingen kan arbejde på et projekt, der ikke er startet eller er slut.
+  const periods = new Map(
+    PROJECTS.map((p) => [
+      projectIds.get(p.name)!,
+      {
+        first: mondayOf(daysFromToday(Math.min(...p.packages.map((pkg) => pkg.start)))).getTime(),
+        last: mondayOf(daysFromToday(Math.max(...p.packages.map((pkg) => pkg.end)))).getTime(),
+      },
+    ]),
+  );
+  const withinPeriod = allocations.filter((a) => {
+    const period = periods.get(a.projectId)!;
+    const week = (a.weekStart as Date).getTime();
+    return week >= period.first && week <= period.last;
+  });
+
+  await prisma.allocation.createMany({ data: withinPeriod });
 
   console.log(
     `Seed færdig: ${titles.size} titler, ${employees.size + extraEmployeeIds.length} medarbejdere, ${PROJECTS.length} projekter, ` +
       `${PROJECTS.reduce((sum, p) => sum + p.packages.length, 0)} arbejdspakker, ${counts.timeEntries} tidsregistreringer, ` +
-      `${counts.remainingUpdates} resterende-opdateringer, ${allocations.length} allokeringer`,
+      `${counts.remainingUpdates} resterende-opdateringer, ${withinPeriod.length} allokeringer`,
   );
 }
 
