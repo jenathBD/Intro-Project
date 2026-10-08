@@ -6,7 +6,8 @@ import { formatHours, formatSignedHours } from '@/lib/format';
 
 export const isOverBudget = (figures: Figures) => figures.varianceHours > 0;
 
-/** Der er brugt mere end estimatet. Så er prognosen over budget, uanset hvad der er tilbage. */
+/** Der er brugt mere end estimatet. Så er prognosen over budget, uanset hvad der er tilbage.
+ *  Uden estimat er estimatet 0 t, så al tid på pakken er over budget (#50). */
 export const isSpentOverEstimate = (figures: Figures) => figures.spentHours > figures.estimateHours;
 
 export function FigureHeaderCells() {
@@ -23,7 +24,7 @@ export function FigureHeaderCells() {
 
 /**
  * spent og remaining erstatter indholdet i "Brugt"- og "Resterende"-cellerne, fx med knapper der åbner detaljer.
- * estimated = false: arbejdspakken har intet estimat (#50). Estimatet vises som "–", og brugt markeres ikke.
+ * estimated = false: arbejdspakken har intet estimat (#50). Estimatet vises som "–", og tid på pakken er over budget.
  */
 export function FigureCells({
   figures,
@@ -37,13 +38,16 @@ export function FigureCells({
   estimated?: boolean;
 }) {
   // Rødt og fedt som afvigelsen. Forklaringen står som skjult tekst til skærmlæsere, som ikke kan se farven.
-  const spentWarning = estimated && isSpentOverEstimate(figures)
-    ? `Brugt er ${formatHours(figures.spentHours - figures.estimateHours)} t over estimatet på ${formatHours(figures.estimateHours)} t.`
-    : undefined;
+  const spentWarning = !isSpentOverEstimate(figures)
+    ? undefined
+    : !estimated
+      ? `Der er brugt ${formatHours(figures.spentHours)} t på en arbejdspakke uden estimat.`
+      : `Brugt er ${formatHours(figures.spentHours - figures.estimateHours)} t over estimatet på ${formatHours(figures.estimateHours)} t.`;
 
   return (
     <>
-      <td className={estimated ? 'num' : 'num bd-meta'}>
+      {/* Intet estimat er kun et problem, når der er brugt eller resterende tid på pakken */}
+      <td className={estimated ? 'num' : isOverBudget(figures) ? 'num font-semibold text-bd-danger' : 'num bd-meta'}>
         {estimated ? formatHours(figures.estimateHours) : '–'}
         {!estimated && <span className="sr-only">Intet estimat</span>}
       </td>
@@ -53,8 +57,7 @@ export function FigureCells({
       </td>
       <td className="num">{remaining ?? formatHours(figures.remainingHours)}</td>
       <td className="num">{formatHours(figures.forecastHours)}</td>
-      {/* Uden estimat er hele prognosen afvigelse. Den tæller med i summen, men pakken markeres ikke som over budget. */}
-      <td className={estimated && isOverBudget(figures) ? 'num font-semibold text-bd-danger' : 'num'}>
+      <td className={isOverBudget(figures) ? 'num font-semibold text-bd-danger' : 'num'}>
         {formatSignedHours(figures.varianceHours)}
       </td>
     </>

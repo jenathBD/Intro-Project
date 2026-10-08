@@ -135,7 +135,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
                 }
               >
                 {group.workPackages.map((wp) => (
-                  <tr key={wp.id} data-sev={wp.estimated && isOverBudget(wp) ? 'blocker' : undefined}>
+                  <tr key={wp.id} data-sev={isOverBudget(wp) ? 'blocker' : undefined}>
                     <td className="bd-tree-child">
                       {/* Klik på navnet for at redigere. Arkiverede projekter kan ikke ændres. */}
                       <div>

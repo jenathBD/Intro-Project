@@ -15,7 +15,7 @@ afvigelse = prognose − estimat
 
 Tallene summeres pr. projekt og vises i både timer og kroner (timer × timepris). Projekter, hvor prognosen overstiger estimatet, markeres med rødt.
 
-En arbejdspakke svarer til ét GitHub-issue og kan høre til et epic. Arbejdspakker kan grupperes pr. epic eller pr. kategori (fx Analyse eller Udvikling); hver pakke har én kategori. Estimat, ansvarlig og datoer er valgfrie, så der kan registreres tid på alle issues. En pakke uden estimat tæller som 0 t i estimatet, men tiden på den tæller med i brugt og prognose, så arbejde uden for budgettet viser sig som afvigelse.
+En arbejdspakke svarer til ét GitHub-issue og kan høre til et epic. Arbejdspakker kan grupperes pr. epic eller pr. kategori (fx Analyse eller Udvikling); hver pakke har én kategori. Estimat, ansvarlig og datoer er valgfrie, så der kan registreres tid på alle issues. En pakke uden estimat tæller som 0 t i estimatet. Tid på den er derfor over budget og markeres med rødt, så arbejde uden for budgettet ikke bliver overset.
 
 ### Funktioner
 

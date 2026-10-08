@@ -154,8 +154,8 @@ export function WorkPackageFormButton({ projectId, workPackage, categories, epic
       </div>
 
       <p className="bd-hint m-0">
-        Ansvarlig, estimat og datoer er valgfrie. Uden estimat tæller pakken ikke med i estimatet, men tid på den tæller med
-        i brugt og prognose. Uden slutdato er den ikke med i bemandingstjekket.{' '}
+        Ansvarlig, estimat og datoer er valgfrie. Uden estimat er al tid på pakken over budget og
+        markeres med rødt. Uden slutdato er den ikke med i bemandingstjekket.{' '}
         {workPackage
           ? 'Et ændret estimat ændrer ikke resterende. Resterende er udviklerens vurdering og opdateres ved at klikke på tallet.'
           : 'Resterende starter med at være lig estimatet.'}
