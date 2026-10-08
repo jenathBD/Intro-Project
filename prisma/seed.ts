@@ -33,7 +33,6 @@ type PackageSeed = {
   spent: number;
   /** Seneste vurdering af resterende */
   remaining: number;
-  team: EmployeeKey[];
   /** Antal dage siden seneste resterende-opdatering. Over 7 = forældet (#13) */
   lastUpdate?: number;
 };
@@ -64,6 +63,35 @@ const EMPLOYEES: Record<EmployeeKey, { name: string; title: TitleKey; weeklyCapa
   emil: { name: 'Emil Berg', title: 'junior', weeklyCapacity: 37 },
 };
 
+/** De øvrige medarbejdere (i alt 25). De er ikke ansvarlige for arbejdspakker, men allokeres efter EXTRA_PATTERNS. */
+const EXTRA_EMPLOYEES: { name: string; title: TitleKey; weeklyCapacity: number }[] = [
+  { name: 'Anders Kjær', title: 'dev', weeklyCapacity: 37 },
+  { name: 'Camilla Vestergaard', title: 'senior', weeklyCapacity: 37 },
+  { name: 'Rasmus Thomsen', title: 'dev', weeklyCapacity: 37 },
+  { name: 'Louise Andersen', title: 'pm', weeklyCapacity: 37 },
+  { name: 'Mikkel Høj', title: 'junior', weeklyCapacity: 37 },
+  { name: 'Ida Lauritsen', title: 'dev', weeklyCapacity: 37 },
+  { name: 'Nikolaj Brandt', title: 'senior', weeklyCapacity: 37 },
+  { name: 'Signe Frost', title: 'dev', weeklyCapacity: 37 },
+  { name: 'Kasper Lind', title: 'junior', weeklyCapacity: 37 },
+  { name: 'Maja Skov', title: 'dev', weeklyCapacity: 37 },
+  { name: 'Thomas Bech', title: 'senior', weeklyCapacity: 37 },
+  { name: 'Julie Krogh', title: 'dev', weeklyCapacity: 37 },
+  { name: 'Oliver Juhl', title: 'junior', weeklyCapacity: 37 },
+  { name: 'Emma Winther', title: 'pm', weeklyCapacity: 37 },
+  { name: 'Frederik Dam', title: 'dev', weeklyCapacity: 37 },
+  { name: 'Laura Holt', title: 'dev', weeklyCapacity: 30 },
+  { name: 'Christian Riis', title: 'senior', weeklyCapacity: 37 },
+  { name: 'Sofie Kirk', title: 'junior', weeklyCapacity: 30 },
+  { name: 'Mads Ravn', title: 'dev', weeklyCapacity: 37 },
+];
+
+/**
+ * FTE-mønstre for de øvrige medarbejdere. Medarbejder nr. i får mønster i % længden og projekter i rotation,
+ * så resultatet er det samme ved hver kørsel. Hver fjerde slutter efter uge 4, så der også er ledig tid længere fremme.
+ */
+const EXTRA_PATTERNS: number[][] = [[1.0], [0.6, 0.4], [0.5, 0.5], [0.4, 0.4, 0.2], [0.8], [0.6, 0.2], [0.5, 0.3]];
+
 const PROJECTS: ProjectSeed[] = [
   {
     // Over budget: estimat 270 t, prognose 332 t
@@ -72,10 +100,10 @@ const PROJECTS: ProjectSeed[] = [
     pricingModel: 'fixed',
     hourlyRate: 1100,
     packages: [
-      { name: 'Login og brugere', category: 'Udvikling', responsible: 'jonas', status: 'done', estimate: 60, start: -70, end: -35, spent: 74, remaining: 0, team: ['jonas', 'ali'] },
-      { name: 'Forbrugsoversigt', description: 'Grafer over forbrug pr. måned og år.', category: 'Udvikling', responsible: 'jonas', status: 'inProgress', estimate: 120, start: -40, end: 14, spent: 105, remaining: 45, team: ['jonas', 'freja', 'ali'] },
-      { name: 'Fakturaarkiv', category: 'Udvikling', responsible: 'freja', status: 'inProgress', estimate: 50, start: -10, end: 28, spent: 18, remaining: 40, team: ['freja'] },
-      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 40, start: -70, end: 28, spent: 38, remaining: 12, team: ['mette'] },
+      { name: 'Login og brugere', category: 'Udvikling', responsible: 'jonas', status: 'done', estimate: 60, start: -70, end: -35, spent: 74, remaining: 0 },
+      { name: 'Forbrugsoversigt', description: 'Grafer over forbrug pr. måned og år.', category: 'Udvikling', responsible: 'jonas', status: 'inProgress', estimate: 120, start: -40, end: 14, spent: 105, remaining: 45 },
+      { name: 'Fakturaarkiv', category: 'Udvikling', responsible: 'freja', status: 'inProgress', estimate: 50, start: -10, end: 28, spent: 18, remaining: 40 },
+      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 40, start: -70, end: 28, spent: 38, remaining: 12 },
     ],
   },
   {
@@ -85,10 +113,10 @@ const PROJECTS: ProjectSeed[] = [
     pricingModel: 'byTitle',
     titleRates: { senior: 1300 },
     packages: [
-      { name: 'Design af bookingflow', category: 'Design', responsible: 'sara', status: 'done', estimate: 40, start: -35, end: -14, spent: 36, remaining: 0, team: ['sara'] },
-      { name: 'Betalingsintegration', category: 'Udvikling', responsible: 'sara', status: 'onHold', estimate: 80, start: -21, end: 21, spent: 30, remaining: 48, team: ['sara', 'emil'], lastUpdate: 12 },
-      { name: 'App til iOS og Android', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: 160, start: -7, end: 56, spent: 12, remaining: 150, team: ['ali', 'emil'] },
-      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 30, start: -35, end: 56, spent: 10, remaining: 20, team: ['mette'] },
+      { name: 'Design af bookingflow', category: 'Design', responsible: 'sara', status: 'done', estimate: 40, start: -35, end: -14, spent: 36, remaining: 0 },
+      { name: 'Betalingsintegration', category: 'Udvikling', responsible: 'sara', status: 'onHold', estimate: 80, start: -21, end: 21, spent: 30, remaining: 48, lastUpdate: 12 },
+      { name: 'App til iOS og Android', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: 160, start: -7, end: 56, spent: 12, remaining: 150 },
+      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 30, start: -35, end: 56, spent: 10, remaining: 20 },
     ],
   },
   {
@@ -97,9 +125,9 @@ const PROJECTS: ProjectSeed[] = [
     customer: 'Grøn Cykel ApS',
     pricingModel: 'byTitle',
     packages: [
-      { name: 'Analyse af lagersystem', category: 'Analyse', responsible: 'jonas', status: 'done', estimate: 24, start: -28, end: -14, spent: 22, remaining: 0, team: ['jonas'] },
-      { name: 'Synkronisering af varer', category: 'Udvikling', responsible: 'jonas', status: 'inProgress', estimate: 70, start: -14, end: 21, spent: 25, remaining: 46, team: ['jonas', 'emil'], lastUpdate: 9 },
-      { name: 'Overvågning og alarmer', category: 'Udvikling', responsible: 'freja', status: 'notStarted', estimate: 30, start: 7, end: 35, spent: 0, remaining: 30, team: ['freja'] },
+      { name: 'Analyse af lagersystem', category: 'Analyse', responsible: 'jonas', status: 'done', estimate: 24, start: -28, end: -14, spent: 22, remaining: 0 },
+      { name: 'Synkronisering af varer', category: 'Udvikling', responsible: 'jonas', status: 'inProgress', estimate: 70, start: -14, end: 21, spent: 25, remaining: 46, lastUpdate: 9 },
+      { name: 'Overvågning og alarmer', category: 'Udvikling', responsible: 'freja', status: 'notStarted', estimate: 30, start: 7, end: 35, spent: 0, remaining: 30 },
     ],
   },
   {
@@ -111,27 +139,27 @@ const PROJECTS: ProjectSeed[] = [
     titleRates: { pm: 1200 },
     packages: [
       // Analyse: alle afsluttet
-      { name: 'Workshop med beboerrepræsentanter', category: 'Analyse', responsible: 'mette', status: 'done', estimate: 16, start: -84, end: -77, spent: 18, remaining: 0, team: ['mette', 'sara'] },
-      { name: 'Kravspecifikation', category: 'Analyse', responsible: 'sara', status: 'done', estimate: 40, start: -80, end: -60, spent: 44, remaining: 0, team: ['sara'] },
-      { name: 'Analyse af ejendomssystemets API', category: 'Analyse', responsible: 'jonas', status: 'done', estimate: 24, start: -70, end: -56, spent: 20, remaining: 0, team: ['jonas'] },
+      { name: 'Workshop med beboerrepræsentanter', category: 'Analyse', responsible: 'mette', status: 'done', estimate: 16, start: -84, end: -77, spent: 18, remaining: 0 },
+      { name: 'Kravspecifikation', category: 'Analyse', responsible: 'sara', status: 'done', estimate: 40, start: -80, end: -60, spent: 44, remaining: 0 },
+      { name: 'Analyse af ejendomssystemets API', category: 'Analyse', responsible: 'jonas', status: 'done', estimate: 24, start: -70, end: -56, spent: 20, remaining: 0 },
       // Design: afsluttet og i gang
-      { name: 'Brugerrejser og wireframes', category: 'Design', responsible: 'sara', status: 'done', estimate: 40, start: -63, end: -42, spent: 46, remaining: 0, team: ['sara'] },
-      { name: 'Visuelt design', category: 'Design', responsible: 'sara', status: 'inProgress', estimate: 60, start: -49, end: -14, spent: 52, remaining: 6, team: ['sara', 'freja'] },
-      { name: 'Designsystem', category: 'Design', responsible: 'freja', status: 'inProgress', estimate: 30, start: -35, end: 7, spent: 14, remaining: 18, team: ['freja'] },
+      { name: 'Brugerrejser og wireframes', category: 'Design', responsible: 'sara', status: 'done', estimate: 40, start: -63, end: -42, spent: 46, remaining: 0 },
+      { name: 'Visuelt design', category: 'Design', responsible: 'sara', status: 'inProgress', estimate: 60, start: -49, end: -14, spent: 52, remaining: 6 },
+      { name: 'Designsystem', category: 'Design', responsible: 'freja', status: 'inProgress', estimate: 30, start: -35, end: 7, spent: 14, remaining: 18 },
       // Udvikling: én pakke afventer leverandøren, to er over budget
-      { name: 'Login med MitID', category: 'Udvikling', responsible: 'jonas', status: 'inProgress', estimate: 50, start: -42, end: -7, spent: 48, remaining: 10, team: ['jonas'] },
-      { name: 'Fejlmeldinger', description: 'Beboere melder fejl med billeder; viceværten følger op.', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: 90, start: -35, end: 21, spent: 52, remaining: 45, team: ['ali', 'emil'] },
-      { name: 'Booking af fælleslokaler', category: 'Udvikling', responsible: 'freja', status: 'inProgress', estimate: 70, start: -21, end: 35, spent: 20, remaining: 50, team: ['freja', 'emil'] },
-      { name: 'Integration til ejendomssystem', description: 'Afventer adgang til leverandørens test-API.', category: 'Udvikling', responsible: 'jonas', status: 'onHold', estimate: 80, start: -28, end: 28, spent: 30, remaining: 60, team: ['jonas'], lastUpdate: 15 },
-      { name: 'Nyheder og opslag', category: 'Udvikling', responsible: 'emil', status: 'notStarted', estimate: 40, start: 7, end: 28, spent: 0, remaining: 40, team: ['emil'] },
+      { name: 'Login med MitID', category: 'Udvikling', responsible: 'jonas', status: 'inProgress', estimate: 50, start: -42, end: -7, spent: 48, remaining: 10 },
+      { name: 'Fejlmeldinger', description: 'Beboere melder fejl med billeder; viceværten følger op.', category: 'Udvikling', responsible: 'ali', status: 'inProgress', estimate: 90, start: -35, end: 21, spent: 52, remaining: 45 },
+      { name: 'Booking af fælleslokaler', category: 'Udvikling', responsible: 'freja', status: 'inProgress', estimate: 70, start: -21, end: 35, spent: 20, remaining: 50 },
+      { name: 'Integration til ejendomssystem', description: 'Afventer adgang til leverandørens test-API.', category: 'Udvikling', responsible: 'jonas', status: 'onHold', estimate: 80, start: -28, end: 28, spent: 30, remaining: 60, lastUpdate: 15 },
+      { name: 'Nyheder og opslag', category: 'Udvikling', responsible: 'emil', status: 'notStarted', estimate: 40, start: 7, end: 28, spent: 0, remaining: 40 },
       // Test: afsluttet og ikke startet
-      { name: 'Testplan', category: 'Test', responsible: 'ali', status: 'done', estimate: 12, start: -14, end: -7, spent: 10, remaining: 0, team: ['ali'] },
-      { name: 'Brugertest med beboere', category: 'Test', responsible: 'sara', status: 'notStarted', estimate: 24, start: 14, end: 28, spent: 0, remaining: 24, team: ['sara'] },
-      { name: 'Tilgængelighedstest (WCAG)', category: 'Test', responsible: 'freja', status: 'notStarted', estimate: 20, start: 21, end: 35, spent: 0, remaining: 20, team: ['freja'] },
+      { name: 'Testplan', category: 'Test', responsible: 'ali', status: 'done', estimate: 12, start: -14, end: -7, spent: 10, remaining: 0 },
+      { name: 'Brugertest med beboere', category: 'Test', responsible: 'sara', status: 'notStarted', estimate: 24, start: 14, end: 28, spent: 0, remaining: 24 },
+      { name: 'Tilgængelighedstest (WCAG)', category: 'Test', responsible: 'freja', status: 'notStarted', estimate: 20, start: 21, end: 35, spent: 0, remaining: 20 },
       // Drift: egen kategori
-      { name: 'Hosting og overvågning', category: 'Drift', responsible: 'jonas', status: 'notStarted', estimate: 20, start: 28, end: 49, spent: 0, remaining: 20, team: ['jonas'] },
+      { name: 'Hosting og overvågning', category: 'Drift', responsible: 'jonas', status: 'notStarted', estimate: 20, start: 28, end: 49, spent: 0, remaining: 20 },
       // Projektledelse
-      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 80, start: -84, end: 49, spent: 52, remaining: 30, team: ['mette'] },
+      { name: 'Projektledelse', category: 'Projektledelse', responsible: 'mette', status: 'inProgress', estimate: 80, start: -84, end: 49, spent: 52, remaining: 30 },
     ],
   },
   {
@@ -142,14 +170,37 @@ const PROJECTS: ProjectSeed[] = [
     hourlyRate: 1000,
     archivedDaysAgo: 30,
     packages: [
-      { name: 'Redesign', category: 'Design', responsible: 'sara', status: 'done', estimate: 80, start: -120, end: -40, spent: 78, remaining: 0, team: ['sara', 'freja'] },
-      { name: 'Test og lancering', category: 'Test', responsible: 'ali', status: 'done', estimate: 20, start: -45, end: -31, spent: 22, remaining: 0, team: ['ali'] },
+      { name: 'Redesign', category: 'Design', responsible: 'sara', status: 'done', estimate: 80, start: -120, end: -40, spent: 78, remaining: 0 },
+      { name: 'Test og lancering', category: 'Test', responsible: 'ali', status: 'done', estimate: 20, start: -45, end: -31, spent: 22, remaining: 0 },
     ],
   },
 ];
 
-/** Allokeringer genereres for disse uger (0 = denne uge) */
-const ALLOCATION_WEEKS = [-2, -1, 0, 1, 2, 3, 4];
+/**
+ * Allokeringer i FTE pr. medarbejder og projekt (#16). Hver medarbejder har 1,0 pr. uge at fordele.
+ * from/to er uger relativt til denne uge (0 = denne uge, -2 = for to uger siden).
+ * Håndlavet, så billedet er overskueligt: Jonas er bevidst overbooket i denne uge, Sara og Mette har ledig tid.
+ */
+const ALLOCATIONS: { employee: EmployeeKey; project: string; fte: number; from: number; to: number }[] = [
+  { employee: 'jonas', project: 'Kundeportal', fte: 0.6, from: -2, to: 2 },
+  { employee: 'jonas', project: 'Lagerintegration', fte: 0.4, from: -2, to: 3 },
+  { employee: 'jonas', project: 'Beboerportal', fte: 0.3, from: 0, to: 0 }, // overbooking: 1,3 i denne uge
+  { employee: 'jonas', project: 'Beboerportal', fte: 0.6, from: 3, to: 8 },
+  { employee: 'mette', project: 'Kundeportal', fte: 0.2, from: -2, to: 3 },
+  { employee: 'mette', project: 'Booking-app', fte: 0.2, from: -2, to: 8 },
+  { employee: 'mette', project: 'Beboerportal', fte: 0.4, from: -2, to: 8 },
+  { employee: 'sara', project: 'Booking-app', fte: 0.5, from: -2, to: -1 },
+  { employee: 'sara', project: 'Beboerportal', fte: 0.5, from: -2, to: 5 },
+  { employee: 'ali', project: 'Kundeportal', fte: 0.2, from: -2, to: 0 },
+  { employee: 'ali', project: 'Booking-app', fte: 0.4, from: -2, to: 8 },
+  { employee: 'ali', project: 'Beboerportal', fte: 0.4, from: -2, to: 8 },
+  { employee: 'freja', project: 'Kundeportal', fte: 0.5, from: -2, to: 4 },
+  { employee: 'freja', project: 'Beboerportal', fte: 0.5, from: -2, to: 8 },
+  { employee: 'freja', project: 'Lagerintegration', fte: 0.5, from: 5, to: 8 },
+  { employee: 'emil', project: 'Booking-app', fte: 0.6, from: -2, to: 8 },
+  { employee: 'emil', project: 'Lagerintegration', fte: 0.4, from: -2, to: 3 },
+  { employee: 'emil', project: 'Beboerportal', fte: 0.4, from: 4, to: 8 },
+];
 
 // ---------- Hjælpere ----------
 
@@ -165,6 +216,7 @@ const pick = <T,>(items: readonly T[]) => items[Math.floor(random() * items.leng
 
 // Datoer som UTC-midnat, så @db.Date gemmer den rigtige dag uanset tidszone
 const DAY = 24 * 60 * 60 * 1000;
+const WEEK = 7 * DAY;
 const now = new Date();
 const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 const daysFromToday = (days: number) => new Date(today.getTime() + days * DAY);
@@ -216,8 +268,16 @@ async function main() {
     employees.set(key, { id: created.id, titleKey: employee.title });
   }
 
+  const extraEmployeeIds: string[] = [];
+  for (const employee of EXTRA_EMPLOYEES) {
+    const created = await prisma.employee.create({
+      data: { name: employee.name, titleId: titles.get(employee.title)!.id, weeklyCapacity: employee.weeklyCapacity },
+    });
+    extraEmployeeIds.push(created.id);
+  }
+
   // Én allokering pr. medarbejder, arbejdspakke og uge (samme regel som @@unique i skemaet)
-  const allocations = new Map<string, Prisma.AllocationCreateManyInput>();
+  const projectIds = new Map<string, string>();
   const counts = { timeEntries: 0, remainingUpdates: 0 };
 
   for (const projectSeed of PROJECTS) {
@@ -237,6 +297,7 @@ async function main() {
       },
       include: { titleRates: true },
     });
+    projectIds.set(projectSeed.name, project.id);
 
     for (const pkg of projectSeed.packages) {
       const startDate = daysFromToday(pkg.start);
@@ -255,13 +316,13 @@ async function main() {
         },
       });
 
-      // Brugt tid: fordel timerne på hverdage og teamet. Prisen låses via resolveHourlyRate.
+      // Brugt tid: fordel timerne på hverdage. Registreres af den ansvarlige. Prisen låses via resolveHourlyRate.
       const lastWorkday = endDate < today ? endDate : daysFromToday(-1);
       const days = weekdaysBetween(startDate, lastWorkday);
       const timeEntries: Prisma.TimeEntryCreateManyInput[] = [];
+      const employee = employees.get(pkg.responsible)!;
       let left = pkg.spent;
       for (let i = 0; left > 0 && days.length > 0; i++) {
-        const employee = employees.get(pkg.team[i % pkg.team.length])!;
         const title = titles.get(employee.titleKey)!;
         const hours = Math.min(left, pick([2, 3, 3.5, 4, 5, 6, 7.5]));
         left -= hours;
@@ -300,46 +361,50 @@ async function main() {
             ];
       await prisma.remainingUpdate.createMany({ data: updates });
       counts.remainingUpdates += updates.length;
-
-      // Allokeringer for de uger, hvor arbejdspakken er i gang (ikke arkiverede projekter)
-      if (projectSeed.archivedDaysAgo) continue;
-      for (const week of ALLOCATION_WEEKS) {
-        const weekStart = daysFromToday(week * 7 - ((today.getUTCDay() + 6) % 7));
-        const weekEnd = new Date(weekStart.getTime() + 4 * DAY);
-        if (weekEnd < startDate || weekStart > endDate) continue;
-        for (const key of pkg.team) {
-          const employeeId = employees.get(key)!.id;
-          allocations.set(`${employeeId}|${workPackage.id}|${weekStart.toISOString()}`, {
-            employeeId,
-            workPackageId: workPackage.id,
-            weekStart,
-            hours: pick([4, 6, 8, 10, 12, 16]),
-          });
-        }
-      }
     }
   }
 
-  // Tydeligt eksempel på overbooking i denne uge (#16): Jonas får 30 + 12 = 42 t mod en kapacitet på 37 t.
-  // Begge sættes eksplicit, så eksemplet ikke afhænger af de tilfældige tal.
-  const jonas = employees.get('jonas')!.id;
-  const thisWeek = mondayOf(today);
-  for (const [name, hours] of [['Forbrugsoversigt', 30], ['Synkronisering af varer', 12]] as const) {
-    const workPackage = await prisma.workPackage.findFirstOrThrow({ where: { name } });
-    allocations.set(`${jonas}|${workPackage.id}|${thisWeek.toISOString()}`, {
-      employeeId: jonas,
-      workPackageId: workPackage.id,
-      weekStart: thisWeek,
-      hours,
+  // Allokeringer i FTE pr. medarbejder, projekt og uge (#16)
+  const thisMonday = mondayOf(today);
+  const weeksFrom = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => new Date(thisMonday.getTime() + (from + i) * WEEK));
+
+  // 1. Den håndlavede liste for de seks kernemedarbejdere
+  const allocations: Prisma.AllocationCreateManyInput[] = ALLOCATIONS.flatMap(({ employee, project, fte, from, to }) =>
+    weeksFrom(from, to).map((weekStart) => ({
+      employeeId: employees.get(employee)!.id,
+      projectId: projectIds.get(project)!,
+      weekStart,
+      fte,
+    })),
+  );
+
+  // 2. Mønstre for de øvrige medarbejdere, fordelt på de aktive projekter i rotation
+  const activeProjects = PROJECTS.filter((p) => !p.archivedDaysAgo).map((p) => projectIds.get(p.name)!);
+  extraEmployeeIds.forEach((employeeId, i) => {
+    const pattern = EXTRA_PATTERNS[i % EXTRA_PATTERNS.length];
+    const lastWeek = i % 4 === 3 ? 4 : 8;
+    pattern.forEach((fte, j) => {
+      const projectId = activeProjects[(i + j) % activeProjects.length];
+      for (const weekStart of weeksFrom(-2, lastWeek)) allocations.push({ employeeId, projectId, weekStart, fte });
     });
+  });
+
+  // 3. Endnu et bevidst eksempel på overbooking: den anden ekstra medarbejder (0,6 + 0,4) får 0,2 mere
+  //    på sit første projekt i denne og næste uge, så summen bliver 1,2
+  for (const allocation of allocations) {
+    if (allocation.employeeId === extraEmployeeIds[1] && allocation.projectId === activeProjects[1]) {
+      const week = (allocation.weekStart as Date).getTime();
+      if (week === thisMonday.getTime() || week === thisMonday.getTime() + WEEK) allocation.fte = 0.8;
+    }
   }
 
-  await prisma.allocation.createMany({ data: [...allocations.values()] });
+  await prisma.allocation.createMany({ data: allocations });
 
   console.log(
-    `Seed færdig: ${titles.size} titler, ${employees.size} medarbejdere, ${PROJECTS.length} projekter, ` +
+    `Seed færdig: ${titles.size} titler, ${employees.size + extraEmployeeIds.length} medarbejdere, ${PROJECTS.length} projekter, ` +
       `${PROJECTS.reduce((sum, p) => sum + p.packages.length, 0)} arbejdspakker, ${counts.timeEntries} tidsregistreringer, ` +
-      `${counts.remainingUpdates} resterende-opdateringer, ${allocations.size} allokeringer`,
+      `${counts.remainingUpdates} resterende-opdateringer, ${allocations.length} allokeringer`,
   );
 }
 
