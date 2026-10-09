@@ -6,6 +6,7 @@
 // - Alle andre issues bliver til arbejdspakker, så der kan registreres tid på dem.
 // - GitHub bestemmer titel, åben/lukket og PR'er. De opdateres ved hver sync.
 // - Dashboardet bestemmer resten (estimat, datoer, kategori, epic, status). Det sættes kun, når pakken oprettes.
+//   Undtagelse (#70): estimat og datoer fra projekttavlen udfyldes også senere, men kun hvor dashboardet er tomt.
 // - Den ansvarlige foreslås ud fra issuets assignee, men kun hvis pakken ikke allerede har en ansvarlig.
 // - Issues lukket som "not planned" oprettes ikke. Findes de allerede, opdateres de som alle andre.
 
@@ -25,7 +26,30 @@ export type GithubIssue = {
   parentNumber: number | null;
   subIssueCount: number;
   pullRequests: GithubPullRequest[];
+  /** Estimat og datoer fra projekttavlen (#70) */
+  board: BoardValues;
 };
+
+/** Datoer som "YYYY-MM-DD" */
+export type BoardValues = { estimate: number | null; startDate: string | null; endDate: string | null };
+
+/** Felterne på projekttavlen, små bogstaver. GitHubs standardnavne; #51 skriver til dem, #70 læser fra dem. */
+export const BOARD_FIELD_NAMES = {
+  estimate: ['estimate'],
+  start: ['start date', 'start'],
+  end: ['target date', 'end date', 'slutdato'],
+} as const;
+
+/** Tavlens værdier ud fra issuets feltværdier. Står issuet på flere tavler, bruges den første værdi. */
+export function boardValues(values: { field: string; number?: number | null; date?: string | null }[]): BoardValues {
+  const find = (names: readonly string[], key: 'number' | 'date') =>
+    values.find((v) => names.includes(v.field.toLowerCase()) && v[key] != null)?.[key] ?? null;
+  return {
+    estimate: find(BOARD_FIELD_NAMES.estimate, 'number') as number | null,
+    startDate: find(BOARD_FIELD_NAMES.start, 'date') as string | null,
+    endDate: find(BOARD_FIELD_NAMES.end, 'date') as string | null,
+  };
+}
 
 /** Labels som "kategori: Udvikling" sætter kategorien på nye pakker. #51 skriver dem til GitHub. */
 export const CATEGORY_LABEL_PREFIX = 'kategori:';
@@ -47,11 +71,23 @@ export function categoryFromLabels(labels: string[]): string | null {
 export type ExistingState = {
   /** Epics i projektet, der allerede er koblet til et issue */
   epicNumbers: Set<number>;
-  /** Arbejdspakker koblet til et issue: nummer → har pakken en ansvarlig? */
-  workPackages: Map<number, { hasResponsible: boolean }>;
+  /** Arbejdspakker koblet til et issue: nummer → hvilke felter har pakken allerede i dashboardet? */
+  workPackages: Map<number, ExistingPackage>;
   /** Medarbejdere med GitHub-login (små bogstaver) → medarbejder-id */
   employeeIdByLogin: Map<string, string>;
 };
+
+export type ExistingPackage = {
+  hasResponsible: boolean;
+  hasEstimate: boolean;
+  hasStartDate: boolean;
+  hasEndDate: boolean;
+  /** Har pakken en vurdering af resterende? */
+  hasRemaining: boolean;
+};
+
+/** Estimat og datoer fra tavlen. remainingHours er den første vurdering af resterende, når estimatet sættes. */
+type FromBoard = { estimateHours?: number; startDate?: string; endDate?: string; remainingHours?: number };
 
 export type PackageCreate = {
   number: number;
@@ -63,7 +99,7 @@ export type PackageCreate = {
   responsibleId: string | null;
   githubState: 'open' | 'closed';
   pullRequests: GithubPullRequest[];
-};
+} & FromBoard;
 
 export type PackageUpdate = {
   number: number;
@@ -72,7 +108,23 @@ export type PackageUpdate = {
   pullRequests: GithubPullRequest[];
   /** Kun sat, når pakken mangler en ansvarlig, og issuets assignee er en kendt medarbejder */
   responsibleId?: string;
-};
+} & FromBoard;
+
+// Tavlens værdier, der må bruges: kun felter, der er tomme i dashboardet. Får pakken et estimat og har den
+// ingen vurdering af resterende, starter resterende som estimatet (0 for lukkede issues), som når en pakke oprettes.
+function fromBoard(issue: GithubIssue, current: Omit<ExistingPackage, 'hasResponsible'>): FromBoard {
+  const { estimate, startDate, endDate } = issue.board;
+  const result: FromBoard = {};
+  if (estimate !== null && !current.hasEstimate) {
+    result.estimateHours = estimate;
+    if (!current.hasRemaining) result.remainingHours = issue.state === 'closed' ? 0 : estimate;
+  }
+  if (startDate !== null && !current.hasStartDate) result.startDate = startDate;
+  if (endDate !== null && !current.hasEndDate) result.endDate = endDate;
+  return result;
+}
+
+const NOTHING_IN_DASHBOARD = { hasEstimate: false, hasStartDate: false, hasEndDate: false, hasRemaining: false };
 
 export type SyncPlan = {
   /** Epics oprettes eller får titlen fra GitHub */
@@ -108,6 +160,7 @@ export function planGithubSync(issues: GithubIssue[], existing: ExistingState): 
         githubState: issue.state,
         pullRequests: issue.pullRequests,
         ...(!current.hasResponsible && responsibleId ? { responsibleId } : {}),
+        ...fromBoard(issue, current),
       });
     } else if (issue.state === 'closed' && issue.stateReason === 'not_planned') {
       plan.skipped.push(issue.number);
@@ -124,6 +177,7 @@ export function planGithubSync(issues: GithubIssue[], existing: ExistingState): 
         responsibleId,
         githubState: issue.state,
         pullRequests: issue.pullRequests,
+        ...fromBoard(issue, NOTHING_IN_DASHBOARD),
       });
     }
   }
