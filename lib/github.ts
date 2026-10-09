@@ -2,7 +2,15 @@ import 'server-only';
 
 import { Prisma } from '@/app/generated/prisma/client';
 import { prisma } from '@/lib/db';
-import { categoryLabel, type GithubIssue, type GithubPullRequest, planGithubSync, planIssueChanges } from '@/lib/github-sync';
+import {
+  BOARD_FIELD_NAMES,
+  boardValues,
+  categoryLabel,
+  type GithubIssue,
+  type GithubPullRequest,
+  planGithubSync,
+  planIssueChanges,
+} from '@/lib/github-sync';
 import { requireSession } from '@/lib/session';
 
 // GitHub-integrationen: import (#24) og skrivning (#51). Tokenet ligger kun på serveren (GITHUB_TOKEN i .env)
@@ -20,6 +28,16 @@ const ISSUES_QUERY = `
           parent { number }
           subIssuesSummary { total }
           closedByPullRequestsReferences(first: 10, includeClosedPrs: true) { nodes { number title state url } }
+          projectItems(first: 5) {
+            nodes {
+              fieldValues(first: 30) {
+                nodes {
+                  ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { name } } }
+                  ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -36,6 +54,7 @@ type IssueNode = {
   parent: { number: number } | null;
   subIssuesSummary: { total: number };
   closedByPullRequestsReferences: { nodes: { number: number; title: string; state: 'OPEN' | 'CLOSED' | 'MERGED'; url: string }[] };
+  projectItems: { nodes: { fieldValues: { nodes: { number?: number | null; date?: string | null; field?: { name: string } }[] } }[] };
 };
 
 type GraphqlResponse<T> = { data?: T; errors?: { type?: string; message: string }[] };
@@ -148,6 +167,12 @@ async function fetchIssues(repo: string, token: string): Promise<GithubIssue[]> 
         pullRequests: node.closedByPullRequestsReferences.nodes.map(
           (pr): GithubPullRequest => ({ number: pr.number, title: pr.title, state: pr.state.toLowerCase() as GithubPullRequest['state'], url: pr.url }),
         ),
+        // Feltværdier fra alle tavler, issuet står på. Andre felttyper (fx status) kommer som tomme objekter.
+        board: boardValues(
+          node.projectItems.nodes.flatMap((item) =>
+            item.fieldValues.nodes.filter((v) => v.field).map((v) => ({ field: v.field!.name, number: v.number, date: v.date })),
+          ),
+        ),
       });
     }
     after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
@@ -156,11 +181,20 @@ async function fetchIssues(repo: string, token: string): Promise<GithubIssue[]> 
   return issues;
 }
 
+// Estimat og datoer fra tavlen, når planen har dem (#70). Datoer som "YYYY-MM-DD" er midnat UTC, som @db.Date forventer.
+function boardData(p: { estimateHours?: number; startDate?: string; endDate?: string }) {
+  return {
+    ...(p.estimateHours !== undefined ? { estimateHours: p.estimateHours } : {}),
+    ...(p.startDate !== undefined ? { startDate: new Date(p.startDate) } : {}),
+    ...(p.endDate !== undefined ? { endDate: new Date(p.endDate) } : {}),
+  };
+}
+
 export type SyncResult = { ok: true; message: string } | { ok: false; error: string };
 
 // Henter projektets issues fra GitHub og opretter eller opdaterer epics og arbejdspakker.
 export async function syncProjectFromGithub(projectId: string): Promise<SyncResult> {
-  await requireSession();
+  const session = await requireSession();
 
   const token = process.env.GITHUB_TOKEN;
   if (!token) return { ok: false, error: 'GitHub er ikke sat op: GITHUB_TOKEN mangler i .env.' };
@@ -171,7 +205,17 @@ export async function syncProjectFromGithub(projectId: string): Promise<SyncResu
       githubRepo: true,
       archivedAt: true,
       epics: { where: { githubNumber: { not: null } }, select: { githubNumber: true } },
-      workPackages: { where: { githubNumber: { not: null } }, select: { githubNumber: true, responsibleId: true } },
+      workPackages: {
+        where: { githubNumber: { not: null } },
+        select: {
+          githubNumber: true,
+          responsibleId: true,
+          estimateHours: true,
+          startDate: true,
+          endDate: true,
+          _count: { select: { remainingUpdates: true } },
+        },
+      },
     },
   });
   if (!project) return { ok: false, error: 'Projektet findes ikke længere. Genindlæs siden.' };
@@ -190,7 +234,18 @@ export async function syncProjectFromGithub(projectId: string): Promise<SyncResu
   const employees = await prisma.employee.findMany({ where: { githubLogin: { not: null } }, select: { id: true, githubLogin: true } });
   const plan = planGithubSync(issues, {
     epicNumbers: new Set(project.epics.map((e) => e.githubNumber!)),
-    workPackages: new Map(project.workPackages.map((wp) => [wp.githubNumber!, { hasResponsible: wp.responsibleId !== null }])),
+    workPackages: new Map(
+      project.workPackages.map((wp) => [
+        wp.githubNumber!,
+        {
+          hasResponsible: wp.responsibleId !== null,
+          hasEstimate: wp.estimateHours !== null,
+          hasStartDate: wp.startDate !== null,
+          hasEndDate: wp.endDate !== null,
+          hasRemaining: wp._count.remainingUpdates > 0,
+        },
+      ]),
+    ),
     employeeIdByLogin: new Map(employees.map((e) => [e.githubLogin!.toLowerCase(), e.id])),
   });
 
@@ -218,7 +273,8 @@ export async function syncProjectFromGithub(projectId: string): Promise<SyncResu
         categoryIdByName.set(name, category.id);
       }
 
-      await tx.workPackage.createMany({
+      const created = await tx.workPackage.createManyAndReturn({
+        select: { id: true, githubNumber: true },
         data: plan.createPackages.map((p) => ({
           projectId,
           githubNumber: p.number,
@@ -231,8 +287,10 @@ export async function syncProjectFromGithub(projectId: string): Promise<SyncResu
           githubState: p.githubState,
           githubPullRequests: pullRequests(p.pullRequests),
           githubSyncedAt: syncedAt,
+          ...boardData(p),
         })),
       });
+      const idByNumber = new Map(created.map((wp) => [wp.githubNumber!, wp.id]));
 
       for (const p of plan.updatePackages) {
         await tx.workPackage.update({
@@ -243,9 +301,24 @@ export async function syncProjectFromGithub(projectId: string): Promise<SyncResu
             githubPullRequests: pullRequests(p.pullRequests),
             githubSyncedAt: syncedAt,
             ...(p.responsibleId ? { responsibleId: p.responsibleId } : {}),
+            ...boardData(p),
           },
-        });
+          select: { id: true },
+        }).then((wp) => idByNumber.set(p.number, wp.id));
       }
+
+      // Første vurdering af resterende for pakker, der har fået estimat fra tavlen (#70)
+      await tx.remainingUpdate.createMany({
+        data: [...plan.createPackages, ...plan.updatePackages]
+          .filter((p) => p.remainingHours !== undefined)
+          .map((p) => ({
+            workPackageId: idByNumber.get(p.number)!,
+            remainingHours: p.remainingHours!,
+            comment: 'Estimat fra GitHub',
+            userId: session.user.id,
+            createdAt: syncedAt,
+          })),
+      });
 
       await tx.project.update({ where: { id: projectId }, data: { githubSyncedAt: syncedAt } });
     },
@@ -254,10 +327,12 @@ export async function syncProjectFromGithub(projectId: string): Promise<SyncResu
   );
 
   const newEpics = plan.epics.filter((e) => e.isNew).length;
+  const estimated = [...plan.createPackages, ...plan.updatePackages].filter((p) => p.estimateHours !== undefined).length;
   const parts = [
     `${plan.createPackages.length} nye arbejdspakker`,
     `${plan.updatePackages.length} opdateret`,
     newEpics > 0 && `${newEpics} nye epics`,
+    estimated > 0 && `${estimated} fik estimat fra tavlen`,
   ].filter(Boolean);
   return { ok: true, message: `Hentet fra GitHub: ${parts.join(', ')}.` };
 }
@@ -268,9 +343,9 @@ export async function syncProjectFromGithub(projectId: string): Promise<SyncResu
 
 /** Felterne på projekttavlen. Navnene er GitHubs standard; mangler et felt på tavlen, springes det over. */
 const BOARD_FIELDS = {
-  estimate: { names: ['estimate'], dataType: 'NUMBER' },
-  start: { names: ['start date', 'start'], dataType: 'DATE' },
-  end: { names: ['target date', 'end date', 'slutdato'], dataType: 'DATE' },
+  estimate: { names: BOARD_FIELD_NAMES.estimate, dataType: 'NUMBER' },
+  start: { names: BOARD_FIELD_NAMES.start, dataType: 'DATE' },
+  end: { names: BOARD_FIELD_NAMES.end, dataType: 'DATE' },
 } as const;
 
 const ISSUE_FOR_PUSH_QUERY = `

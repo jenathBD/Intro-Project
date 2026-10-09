@@ -59,12 +59,13 @@ export function CollapsibleTableGroup({
 
 // En undergruppe inde i en gruppe, fx et epic i en kategori (#50). Rækker i forældrenes <tbody>, fordi
 // <tbody> ikke kan indlejres. Rækkerne under skal bruge td.bd-tree-child--2, så de står et niveau længere inde.
+// Foldet sammen fra start (#70): når gruppen foldes ud, ser man først undergruppernes subtotaler.
 export function CollapsibleTableSubgroup({
   label,
   meta,
   headerCells,
   severity,
-  defaultOpen = true,
+  defaultOpen = false,
   children,
 }: {
   label: string;
