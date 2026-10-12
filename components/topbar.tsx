@@ -1,9 +1,10 @@
+import { Logo } from '@/components/logo';
 import { signOut } from '@/app/login/actions';
 
 export function Topbar({ userName }: { userName: string }) {
   return (
     <div className="bd-topbar">
-      <span className="bd-wordmark"><b>Better</b><span>Developers</span></span>
+      <Logo />
       <span className="bd-tool">Intro-Project</span>
       <span className="bd-spacer" />
       <span className="bd-meta">{userName}</span>

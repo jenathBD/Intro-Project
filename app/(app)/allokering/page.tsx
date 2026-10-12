@@ -88,7 +88,7 @@ export default async function AllocationPage({ searchParams }: PageProps<'/allok
         Fold en medarbejder ud, og skriv FTE i trin af {formatFte(0.1)} (tom eller 0 fjerner). 1,0 FTE ={' '}
         {FULL_TIME_HOURS} t; på deltid er kapaciteten lavere (fx 30 t = 0,8 FTE).{' '}
         <span className="font-semibold text-bd-danger">Rødt</span>: overbooket (over kapaciteten).{' '}
-        <span className="font-semibold text-bd-warn">Orange</span>: ledig tid (under kapaciteten).{' '}
+        <span className="font-semibold text-bd-warn">Rav</span>: ledig tid (under kapaciteten).{' '}
         <span className="bd-cell-internal px-1">Blå baggrund</span>: noget af ugen er intern tid. Intern tid
         og fravær tæller som planlagt. Ferie og helligdage skrives ind på <em>Ferie</em> (1 dag = 0,2 FTE).
       </p>

@@ -9,7 +9,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
         />
       </head>
       <body className="bd" style={{ margin: 0, minHeight: '100vh' }}>{children}</body>

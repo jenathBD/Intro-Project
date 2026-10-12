@@ -11,6 +11,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Alle stier undtagen login, Better Auths API og Next's egne filer
-  matcher: ['/((?!login|api/auth|_next/static|_next/image|favicon.ico).*)'],
+  // Alle stier undtagen login, Better Auths API, Next's egne filer, favicon og BD's logo (public/brand)
+  matcher: ['/((?!login|api/auth|_next/static|_next/image|favicon.ico|icon.png|brand/).*)'],
 };

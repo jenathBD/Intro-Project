@@ -9,20 +9,26 @@
   --color-bd-ink-2: var(--bd-ink-2);
   --color-bd-muted: var(--bd-muted);
   --color-bd-line: var(--bd-line);
+  --color-bd-line-strong: var(--bd-line-strong);
   --color-bd-canvas: var(--bd-canvas);
   --color-bd-surface: var(--bd-surface);
   --color-bd-surface-2: var(--bd-surface-2);
   --color-bd-accent: var(--bd-accent);
   --color-bd-accent-hover: var(--bd-accent-hover);
   --color-bd-accent-soft: var(--bd-accent-soft);
+  --color-bd-accent-ink: var(--bd-accent-ink);
   --color-bd-on-accent: var(--bd-on-accent);
+  --color-bd-focus-ring: var(--bd-focus-ring);
   --color-bd-ok: var(--bd-ok);
   --color-bd-ok-soft: var(--bd-ok-soft);
   --color-bd-warn: var(--bd-warn);
   --color-bd-warn-soft: var(--bd-warn-soft);
   --color-bd-danger: var(--bd-danger);
   --color-bd-danger-soft: var(--bd-danger-soft);
+  --color-bd-info: var(--bd-info);
+  --color-bd-info-soft: var(--bd-info-soft);
 
+  --font-display: var(--bd-font-display);
   --font-sans: var(--bd-font-sans);
   --font-mono: var(--bd-font-mono);
 }
@@ -95,7 +101,7 @@
 
   /* Tal eller tekst, der kan klikkes for at se detaljer (fx "Brugt" → registreringer) */
   .bd-link-button {
-    font: inherit; font-variant-numeric: tabular-nums; color: var(--bd-accent);
+    font: inherit; font-variant-numeric: tabular-nums; color: var(--bd-accent-ink);
     background: none; border: 0; padding: 0; cursor: pointer;
     text-decoration: underline dotted; text-underline-offset: 3px;
   }
@@ -112,7 +118,7 @@
      så kolonnerne ikke hopper, når rækker foldes ud. På smalle skærme scroller tabellen i sin ramme. */
   .bd-table.bd-table--fixed { table-layout: fixed; min-width: 48rem; }
   .bd-table--fixed col.bd-col-label { width: 20rem; }
-  /* Kun første kolonne afskæres med …; de andre må ikke klippe fokusringen (box-shadow) på felterne af */
+  /* Kun første kolonne afskæres med …; de andre må ikke klippe fokusstregen på felterne af */
   .bd-table--fixed td:first-child, .bd-table--fixed th:first-child { overflow: hidden; text-overflow: ellipsis; }
   /* Kolonnerne efter den første er centreret, også tal og felter, så de står på linje under ugeoverskriften */
   .bd-table.bd-table--fixed th:not(:first-child),
