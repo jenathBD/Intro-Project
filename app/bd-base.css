@@ -1,7 +1,7 @@
 /* ==========================================================================
-   Better Developers – base.css  ·  v0.1 (udkast)
+   Better Developers – base.css  ·  v0.5
    Til interne værktøjer. Indlæs fonte:
-   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
    Alle komponenter bruger tokens – brug aldrig hex direkte i et værktøj.
    ========================================================================== */
 
@@ -11,24 +11,29 @@
   --bd-ink-2:        #3A3F4A;  /* sekundær tekst */
   --bd-muted:        #646B78;  /* hjælpetekst, labels */
   --bd-line:         #E1E4EA;  /* borders, dividers */
+  --bd-line-strong:  #868D9A;  /* kant på felter: 3,3:1 mod flade (WCAG 1.4.11) */
   --bd-canvas:       #F3F4F7;  /* sidebaggrund */
   --bd-surface:      #FFFFFF;  /* kort, tabeller, felter */
   --bd-surface-2:    #F8F9FB;  /* hover, zebra, header i tabel */
-  --bd-accent:       #2346D8;  /* BD-blå: handlinger, links, fokus, aktiv tilstand */
-  --bd-accent-hover: #1B38B4;
-  --bd-accent-soft:  #E8ECFC;
-  --bd-on-accent:    #FFFFFF;
+  --bd-accent:       #F57B35;  /* BD-orange fra logoet: primærknap, aktiv markering (fokus bruger --bd-focus-ring) */
+  --bd-accent-hover: #E8692A;
+  --bd-accent-soft:  #FEF0E6;
+  --bd-accent-ink:   #B8480F;  /* orange tekst på lys flade: links, aktiv nav (5,3:1) */
+  --bd-on-accent:    #15171C;  /* tekst på orange: altid mørk (6,6:1) */
+  --bd-focus-ring:   #B8480F;  /* fokus: dyb orange, 5,3:1 mod hvid (BD-orange giver kun 2,7:1) */
+  --bd-gradient:     linear-gradient(60deg, #F57B35 0%, #F8A235 50%, #F2E52C 100%); /* kun logo + ét signaturelement */
 
   /* Semantik – adskilt fra accent. Følger review-skalaen */
   --bd-ok:        #1F7A50;  --bd-ok-soft:     #E3F2EA;
-  --bd-warn:      #B5600C;  --bd-warn-soft:   #FBEEDD;  /* "Vigtig" */
+  --bd-warn:      #946006;  --bd-warn-soft:   #FBF1D6;  /* "Vigtig" – rav, adskilt fra brand-orange */
   --bd-danger:    #C2352B;  --bd-danger-soft: #FBE7E5;  /* "Blokerende" */
-  --bd-info:      var(--bd-accent); --bd-info-soft: var(--bd-accent-soft); /* "Mindre" */
+  --bd-info:      #2346D8;  --bd-info-soft:   #E8ECFC;  /* "Mindre" – blå */
 
   /* Typografi */
+  --bd-font-display: "Jost", "Futura", ui-sans-serif, system-ui, sans-serif; /* overskrifter, nøgletal – følger ordmærket */
   --bd-font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --bd-font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --bd-fs-xs: 0.75rem;   /* 12 – eyebrow, meta */
+  --bd-fs-xs: 0.75rem;   /* 12 – eyebrow, meta, tabelhoved */
   --bd-fs-sm: 0.8125rem; /* 13 – tabel, hjælpetekst */
   --bd-fs-md: 0.9375rem; /* 15 – brødtekst i værktøjer */
   --bd-fs-lg: 1.125rem;  /* 18 – korttitel */
@@ -42,27 +47,26 @@
   --bd-r-md: 8px;  /* kort, tabeller */
   --bd-r-lg: 12px; /* dialoger */
   --bd-shadow-pop: 0 12px 32px -12px rgba(21, 23, 28, 0.28);
-  --bd-focus: 0 0 0 3px color-mix(in srgb, var(--bd-accent) 35%, transparent);
   --bd-ease: cubic-bezier(.2, .7, .2, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bd-ink: #E9ECF1; --bd-ink-2: #C3C8D2; --bd-muted: #969EAC; --bd-line: #2A2F39;
+    --bd-ink: #E9ECF1; --bd-ink-2: #C3C8D2; --bd-muted: #969EAC; --bd-line: #2A2F39; --bd-line-strong: #666E7E;
     --bd-canvas: #0F1115; --bd-surface: #171A20; --bd-surface-2: #1D2129;
-    --bd-accent: #7E94FF; --bd-accent-hover: #9DAEFF; --bd-accent-soft: #1E2547; --bd-on-accent: #0F1115;
-    --bd-ok: #5CC48F; --bd-ok-soft: #13291E; --bd-warn: #F0A250; --bd-warn-soft: #2E2112;
-    --bd-danger: #F07A70; --bd-danger-soft: #331A18;
+    --bd-accent: #F57B35; --bd-accent-hover: #F7914F; --bd-accent-soft: #33200F; --bd-accent-ink: #F8A235; --bd-on-accent: #15171C; --bd-focus-ring: #F57B35;
+    --bd-ok: #5CC48F; --bd-ok-soft: #13291E; --bd-warn: #E3B341; --bd-warn-soft: #2C2410;
+    --bd-danger: #F07A70; --bd-danger-soft: #331A18; --bd-info: #7E94FF; --bd-info-soft: #1E2547;
     --bd-shadow-pop: 0 12px 32px -12px rgba(0, 0, 0, 0.7);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bd-ink: #E9ECF1; --bd-ink-2: #C3C8D2; --bd-muted: #969EAC; --bd-line: #2A2F39;
+  --bd-ink: #E9ECF1; --bd-ink-2: #C3C8D2; --bd-muted: #969EAC; --bd-line: #2A2F39; --bd-line-strong: #666E7E;
   --bd-canvas: #0F1115; --bd-surface: #171A20; --bd-surface-2: #1D2129;
-  --bd-accent: #7E94FF; --bd-accent-hover: #9DAEFF; --bd-accent-soft: #1E2547; --bd-on-accent: #0F1115;
-  --bd-ok: #5CC48F; --bd-ok-soft: #13291E; --bd-warn: #F0A250; --bd-warn-soft: #2E2112;
-  --bd-danger: #F07A70; --bd-danger-soft: #331A18;
+  --bd-accent: #F57B35; --bd-accent-hover: #F7914F; --bd-accent-soft: #33200F; --bd-accent-ink: #F8A235; --bd-on-accent: #15171C; --bd-focus-ring: #F57B35;
+  --bd-ok: #5CC48F; --bd-ok-soft: #13291E; --bd-warn: #E3B341; --bd-warn-soft: #2C2410;
+  --bd-danger: #F07A70; --bd-danger-soft: #331A18; --bd-info: #7E94FF; --bd-info-soft: #1E2547;
   --bd-shadow-pop: 0 12px 32px -12px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
@@ -74,9 +78,11 @@
   color: var(--bd-ink); background: var(--bd-canvas);
   -webkit-font-smoothing: antialiased;
 }
-.bd a { color: var(--bd-accent); text-underline-offset: 2px; }
-.bd :focus-visible { outline: none; box-shadow: var(--bd-focus); border-radius: var(--bd-r-sm); }
+.bd a { color: var(--bd-accent-ink); text-underline-offset: 2px; }
+/* Fokus: 2px orange streg med 2px luft. Outline (ikke box-shadow), så den også vises i Windows' kontrasttilstand */
+.bd :focus-visible { outline: 2px solid var(--bd-focus-ring); outline-offset: 2px; }
 .bd .num, .bd td.num { font-variant-numeric: tabular-nums; }
+.bd [hidden] { display: none !important; } /* komponenter med display må ikke overtrumfe hidden */
 
 /* ---------- Typografi ---------- */
 .bd-eyebrow {
@@ -84,8 +90,8 @@
   letter-spacing: var(--bd-tracking-eyebrow); text-transform: uppercase; color: var(--bd-muted);
   margin: 0;
 }
-.bd-title { font-size: var(--bd-fs-xl); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
-.bd-h2 { font-size: var(--bd-fs-lg); font-weight: 650; line-height: 1.3; margin: 0; text-wrap: balance; }
+.bd-title { font-family: var(--bd-font-display); font-size: var(--bd-fs-xl); font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.bd-h2 { font-family: var(--bd-font-display); font-size: var(--bd-fs-lg); font-weight: 600; line-height: 1.3; margin: 0; text-wrap: balance; }
 .bd-lede { color: var(--bd-ink-2); max-width: 62ch; margin: 0; }
 .bd-meta { font-size: var(--bd-fs-sm); color: var(--bd-muted); }
 .bd-page-head { display: grid; gap: var(--bd-s2); }
@@ -104,7 +110,7 @@
   color: var(--bd-ink-2); text-decoration: none; font-size: var(--bd-fs-sm); font-weight: 500;
 }
 .bd-nav a:hover { background: var(--bd-surface-2); color: var(--bd-ink); }
-.bd-nav a[aria-current="page"] { background: var(--bd-accent-soft); color: var(--bd-accent); font-weight: 600; }
+.bd-nav a[aria-current="page"] { background: var(--bd-accent-soft); color: var(--bd-accent-ink); font-weight: 600; }
 .bd-nav .bd-count { margin-left: auto; font-family: var(--bd-font-mono); font-size: var(--bd-fs-xs); color: var(--bd-muted); }
 .bd-main { padding: var(--bd-s5); display: grid; gap: var(--bd-s5); align-content: start; min-width: 0; }
 @media (max-width: 760px) {
@@ -113,10 +119,14 @@
   .bd-main { padding: var(--bd-s4); }
 }
 
-/* ---------- Wordmark (pladsholder indtil rigtigt logo) ---------- */
-.bd-wordmark { display: inline-flex; align-items: baseline; font-size: 1.0625rem; letter-spacing: -0.02em; color: var(--bd-ink); white-space: nowrap; }
-.bd-wordmark b { font-weight: 800; }
-.bd-wordmark span { font-weight: 400; }
+/* ---------- Logo ---------- */
+/* <img class="bd-logo" src="bd-logo.svg"> på lys flade, bd-logo-white.svg på mørk. Højde 24–32px i topbar. */
+.bd-logo { display: block; height: 28px; width: auto; }
+/* Reserve, hvis logofilen ikke er tilgængelig: ordmærket sat i Jost */
+.bd-wordmark { display: inline-flex; align-items: center; gap: 8px; font-family: var(--bd-font-display); font-weight: 700; font-size: 1.125rem; letter-spacing: -0.01em; color: var(--bd-ink); white-space: nowrap; }
+.bd-wordmark::before { content: ""; width: 22px; height: 16px; border-radius: 5px; background: var(--bd-gradient); }
+/* Signaturelement: tynd gradient-streg, fx under sidehovedet. Maks. ét pr. visning. */
+.bd-signature { height: 3px; width: 48px; border-radius: 2px; background: var(--bd-gradient); border: 0; margin: 0; }
 
 /* ---------- Knapper ---------- */
 .bd-btn {
@@ -142,10 +152,10 @@
 .bd-label { font-size: var(--bd-fs-sm); font-weight: 600; color: var(--bd-ink); }
 .bd-input, .bd-select, .bd-textarea {
   font: inherit; font-size: var(--bd-fs-md); color: var(--bd-ink); background: var(--bd-surface);
-  border: 1px solid var(--bd-line); border-radius: var(--bd-r-sm); padding: 9px var(--bd-s3); width: 100%;
+  border: 1px solid var(--bd-line-strong); border-radius: var(--bd-r-sm); padding: 9px var(--bd-s3); width: 100%;
 }
-.bd-input:hover, .bd-select:hover, .bd-textarea:hover { border-color: color-mix(in srgb, var(--bd-muted) 60%, var(--bd-line)); }
-.bd-input:focus, .bd-select:focus, .bd-textarea:focus { outline: none; border-color: var(--bd-accent); box-shadow: var(--bd-focus); }
+.bd-input:hover, .bd-select:hover, .bd-textarea:hover { border-color: var(--bd-muted); }
+.bd-input:focus-visible, .bd-select:focus-visible, .bd-textarea:focus-visible { border-color: var(--bd-focus-ring); }
 .bd-hint { font-size: var(--bd-fs-xs); color: var(--bd-muted); }
 .bd-field.is-error .bd-input { border-color: var(--bd-danger); }
 .bd-field.is-error .bd-hint { color: var(--bd-danger); }
@@ -162,7 +172,7 @@
 .bd-badge--warn   { background: var(--bd-warn-soft);   color: var(--bd-warn);   border-color: transparent; }
 .bd-badge--danger { background: var(--bd-danger-soft); color: var(--bd-danger); border-color: transparent; }
 .bd-badge--info   { background: var(--bd-info-soft);   color: var(--bd-info);   border-color: transparent; }
-.bd-badge--strong { background: var(--bd-ink); color: var(--bd-surface); border-color: transparent; letter-spacing: .08em; text-transform: uppercase; font-size: 0.6875rem; }
+.bd-badge--strong { background: var(--bd-ink); color: var(--bd-surface); border-color: transparent; letter-spacing: .08em; text-transform: uppercase; font-size: var(--bd-fs-xs); }
 .bd-badge--strong::before { display: none; }
 
 /* Issue-/sags-ID: A-01, PR-05, B-24 */
@@ -177,7 +187,7 @@
 .bd-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--bd-s3); flex-wrap: wrap; }
 .bd-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--bd-s3); }
 .bd-stat { background: var(--bd-surface); border: 1px solid var(--bd-line); border-radius: var(--bd-r-md); padding: var(--bd-s4); display: grid; gap: 2px; }
-.bd-stat__value { font-size: var(--bd-fs-2xl); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bd-stat__value { font-family: var(--bd-font-display); font-size: var(--bd-fs-2xl); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .bd-stat__value small { font-size: var(--bd-fs-md); font-weight: 500; color: var(--bd-muted); margin-left: 4px; }
 .bd-stat__delta { font-size: var(--bd-fs-xs); color: var(--bd-muted); }
 .bd-stat__delta.is-bad { color: var(--bd-danger); }
@@ -187,7 +197,7 @@
 .bd-table-wrap { overflow-x: auto; border: 1px solid var(--bd-line); border-radius: var(--bd-r-md); background: var(--bd-surface); }
 .bd-table { width: 100%; border-collapse: collapse; font-size: var(--bd-fs-sm); }
 .bd-table th {
-  text-align: left; font-family: var(--bd-font-mono); font-size: 0.6875rem; font-weight: 500;
+  text-align: left; font-family: var(--bd-font-mono); font-size: var(--bd-fs-xs); font-weight: 500;
   letter-spacing: .1em; text-transform: uppercase; color: var(--bd-muted);
   padding: 10px var(--bd-s4); background: var(--bd-surface-2); border-bottom: 1px solid var(--bd-line); white-space: nowrap;
 }
@@ -195,7 +205,7 @@
 .bd-table tr:last-child td { border-bottom: 0; }
 .bd-table tbody tr:hover td { background: var(--bd-surface-2); }
 .bd-table td.num, .bd-table th.num { text-align: right; }
-/* Alvorlighed som stribe i venstre kant af rækken */
+/* Alvorlighed som stribe i venstre kant af rækken. Striben står aldrig alene: rækken har altid en badge med ordet (Blokerende/Vigtig/Mindre) */
 .bd-table tr[data-sev] td:first-child { box-shadow: inset 3px 0 0 var(--sev, transparent); }
 .bd-table tr[data-sev="blocker"] { --sev: var(--bd-danger); }
 .bd-table tr[data-sev="major"]   { --sev: var(--bd-warn); }
@@ -211,10 +221,12 @@
 .bd-callout--risk > .bd-eyebrow { color: var(--bd-warn); }
 .bd-callout--blocker { background: var(--bd-danger-soft); border-color: transparent; }
 .bd-callout--blocker > .bd-eyebrow { color: var(--bd-danger); }
-.bd-callout--info { background: var(--bd-accent-soft); border-color: transparent; }
-.bd-callout--info > .bd-eyebrow { color: var(--bd-accent); }
+.bd-callout--info { background: var(--bd-info-soft); border-color: transparent; }
+.bd-callout--info > .bd-eyebrow { color: var(--bd-info); }
 
-/* ---------- Faner ---------- */
+/* ---------- Faner ----------
+   Markup: .bd-tabs[role=tablist] > .bd-tab[role=tab][aria-selected][aria-controls], panel med role=tabpanel.
+   Piletaster flytter mellem faner; kun den valgte fane har tabindex=0. */
 .bd-tabs { display: flex; gap: var(--bd-s4); border-bottom: 1px solid var(--bd-line); overflow-x: auto; }
 .bd-tab {
   font: inherit; font-size: var(--bd-fs-sm); font-weight: 500; color: var(--bd-muted); background: none; border: 0;
@@ -231,13 +243,14 @@
 .bd-step span { font-size: var(--bd-fs-xs); color: var(--bd-muted); }
 .bd-step.is-done { border-top-color: var(--bd-ink); }
 .bd-step.is-current { border-top-color: var(--bd-accent); }
-.bd-step.is-current::before { color: var(--bd-accent); }
+.bd-step.is-current::before { color: var(--bd-accent-ink); }
 
 /* ---------- Tom tilstand ---------- */
 .bd-empty { border: 1px dashed var(--bd-line); border-radius: var(--bd-r-md); padding: var(--bd-s6) var(--bd-s5); text-align: center; display: grid; gap: var(--bd-s2); justify-items: center; color: var(--bd-muted); font-size: var(--bd-fs-sm); }
 .bd-empty strong { color: var(--bd-ink); font-size: var(--bd-fs-md); }
 
-/* ---------- Toast ---------- */
+/* ---------- Toast ----------
+   Læg den i en container med role="status", så skærmlæsere læser kvitteringen op. */
 .bd-toast {
   display: inline-flex; align-items: center; gap: var(--bd-s3); padding: 10px var(--bd-s4);
   background: var(--bd-ink); color: var(--bd-surface); border-radius: var(--bd-r-sm); font-size: var(--bd-fs-sm);

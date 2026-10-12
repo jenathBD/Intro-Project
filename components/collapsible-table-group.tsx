@@ -32,7 +32,7 @@ export function CollapsibleTableGroup({
   /** Lille tekst efter navnet, fx antal pakker eller kapacitet */
   meta?: ReactNode;
   headerCells: ReactNode;
-  /** Stribe i venstre kant: blocker = rød (fx over budget, overbooket), major = orange (fx ledig tid) */
+  /** Stribe i venstre kant: blocker = rød (fx over budget, overbooket), major = rav (fx ledig tid) */
   severity?: 'blocker' | 'major';
   defaultOpen?: boolean;
   children: ReactNode;

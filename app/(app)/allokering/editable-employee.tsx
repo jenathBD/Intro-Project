@@ -16,7 +16,7 @@ const roundFte = (value: number) => Math.round(value * 10) / 10;
 
 const KIND_LABELS: Record<ProjectKind, string> = { client: 'Kundeprojekter', internal: 'Interne', absence: 'Fravær' };
 
-// Summen pr. uge i forhold til medarbejderens kapacitet: over = rødt (overbooket), under = orange (ledig tid).
+// Summen pr. uge i forhold til medarbejderens kapacitet: over = rødt (overbooket), under = rav (ledig tid).
 // Intern tid tæller som planlagt, men fremhæves med blå baggrund (#44). Fravær fremhæves ikke.
 function TotalCell({ fte, capacity, internal }: { fte: number; capacity: number; internal: number }) {
   const level = bookingLevel(fte, capacity);

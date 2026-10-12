@@ -36,3 +36,6 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Lokal VS Code-workspace
+*.code-workspace

@@ -1,7 +1,8 @@
 # Stilprofil – Intro-Project
-Skill: bd-styleguide v0.2
+Skill: bd-styleguide v0.5
 Stil: BD-kerne
 Outputs: web
+Stack: Next.js + Tailwind med `bd-base.css` (ikke shadcn/ui; projektet er bygget på BD's CSS-klasser)
 Tema: lys + mørk
 
 ## Overrides (kun det der afviger fra BD-kernen)
@@ -12,15 +13,16 @@ Tema: lys + mørk
 ## Projektregler
 - CSS ligger i `app/bd-base.css`. Den importeres i `app/globals.css` i `components`-laget, efter Tailwind, og `globals.css` importeres i `app/layout.tsx`. Overrides skrives i blokken nederst i `bd-base.css`, ikke i komponenterne.
 - Tailwind: BD-tokens findes som klasser via `@theme inline` i `globals.css` (`text-bd-muted`, `bg-bd-accent` …). Brug dem i stedet for Tailwinds standardfarver eller hex.
-- Logo: tekst-wordmark `.bd-wordmark` (pladsholder, indtil BD's officielle logo foreligger).
+- Logo: BD's logo fra styleguiden ligger i `public/brand/` (`bd-logo.web.svg` på lys flade, `bd-logo-white.web.svg` på mørk) og vises med `components/logo.tsx` (`.bd-logo`, 28 px). Favicon er mærket (`app/icon.png`). `.bd-wordmark` bruges kun som reserve.
+- Fonte: Jost (overskrifter, nøgletal), Hanken Grotesk og IBM Plex Mono indlæses i `app/layout.tsx`. Tailwind-klassen `font-display` giver Jost.
 - Projektets egen CSS, der bygger videre på BD-komponenter, står i `app/globals.css` i en `@layer components`-blok. `bd-base.css` holdes uændret. Brug kun `var(--bd-…)` og BD's mobilgrænse på 760px, ikke Tailwinds `md:`.
 - Dialoger: brug altid `components/dialog.tsx`. Den renderer dialogen i `<body>` med en portal, så den ikke arver stil fra det sted, knappen står (fx højrestilling og røde striber, når knappen står i en tabelcelle). Native `<dialog>` med `.bd-dialog` (radius `--bd-r-lg`, `--bd-shadow-pop`). Højst én primær knap; "Annullér" er ghost. Bekræftelse efter gem vises som `.bd-toast` nederst til højre (`.bd-toast-region`, `role="status"`).
 - Tal over grænsen i tabeller (fx brugt over estimat, afvigelse over 0): rødt og fedt (`--bd-danger`), uden mærke og uden tooltip. Forklaringen står som `sr-only`-tekst til skærmlæsere. Brugt over estimat: `td.bd-over-estimate`.
 - Tabeller, hvor rækker foldes ud eller får felter (fx ugegridet): `.bd-table--fixed` med `<colgroup>`, så kolonnebredderne ikke hopper. Første kolonne har `col.bd-col-label` (20rem); de øvrige deler resten ligeligt og er centreret (også tal og felter). Mindst 48rem bred; på smalle skærme scroller tabellen i sin ramme.
 - Formularfelter side om side: `.bd-field` har `align-content: start`, så felter står på linje, også når nabofeltet har en hjælpetekst.
 - Redigerbare celler i tabeller: `.bd-input.bd-input--cell` (smal, højrestillet, tabular-nums). Celler, der ikke kan redigeres, viser værdien som almindelig dæmpet tekst. Små valglister i tabeller: `.bd-select--sm`.
-- Allokering: 1,0 FTE = 37 t; kapaciteten på deltid er lavere (30 t = 0,8 FTE) og står ved navnet ("30 t · 0,8 FTE"). Overbooket (over kapaciteten) er rødt og fedt med rød stribe på medarbejderrækken (`data-sev="blocker"`). Ledig tid (under kapaciteten, også med 0,1, og 0,0) er orange og fedt (`--bd-warn`) med orange stribe (`data-sev="major"`). Rød vinder over orange. Intern tid tæller som planlagt; uger med intern tid får BD's info-flade (`td.bd-cell-internal`, `--bd-info-soft`) i summen. Fraværsrækker (fx Ferie) er kursiv og dæmpede (`tr.bd-row-absence`).
-- Tal, der kan klikkes for detaljer (fx "Brugt" → tidsregistreringer), er `.bd-link-button`: accentfarve med prikket understregning, der bliver fuld ved hover. Detaljerne vises i `.bd-dialog--wide`.
+- Allokering: 1,0 FTE = 37 t; kapaciteten på deltid er lavere (30 t = 0,8 FTE) og står ved navnet ("30 t · 0,8 FTE"). Overbooket (over kapaciteten) er rødt og fedt med rød stribe på medarbejderrækken (`data-sev="blocker"`). Ledig tid (under kapaciteten, også med 0,1, og 0,0) er rav og fedt (`--bd-warn`) med rav stribe (`data-sev="major"`). Rød vinder over rav. Intern tid tæller som planlagt; uger med intern tid får BD's info-flade (`td.bd-cell-internal`, `--bd-info-soft`) i summen. Fraværsrækker (fx Ferie) er kursiv og dæmpede (`tr.bd-row-absence`).
+- Tal, der kan klikkes for detaljer (fx "Brugt" → tidsregistreringer), er `.bd-link-button`: `--bd-accent-ink` (orange tekst, der kan læses på hvid) med prikket understregning, der bliver fuld ved hover. Detaljerne vises i `.bd-dialog--wide`.
 - Rækkehandlinger i tabeller (fx "Registrér tid") er `.bd-btn--secondary .bd-btn--sm` i sidste kolonne.
 - Tabeller med totaler: total-rækken står i `<tfoot>` og får en kraftigere linje over og fed tekst.
 - Træstruktur i tabeller: én `<tbody>` pr. gruppe. Grupperækken (`.bd-group-row`) har `surface-2`-baggrund, fed tekst og en fold-knap (`.bd-group-toggle` med `aria-expanded`) med én pil (`.bd-chevron`), der peger mod højre og drejer 90° ned, når gruppen er foldet ud og en kraftig linje over. Rækkerne under er indrykket med en lodret træ-linje (`td.bd-tree-child`) og skrives i normal vægt, så kun gruppen er fed. Et tredje niveau (fx kategori → epic → arbejdspakke) bruger en undergrupperække (`tr.bd-subgroup-row`) i gruppens `<tbody>`: ét niveau inde (`td.bd-tree-child`), halvfed (600), uden egen baggrund og med sin egen fold-knap, der er foldet sammen fra start, så man først ser undergruppernes subtotaler. Rækkerne under undergruppen er to niveauer inde med to træ-linjer (`td.bd-tree-child.bd-tree-child--2`). Rækker uden undergruppe står efter undergrupperne, ét niveau inde. Issuenumre (fx `#8`) vises som `.bd-id`.
@@ -33,3 +35,4 @@ Tema: lys + mørk
 - 2026-10-08 Træstruktur med tre niveauer: undergrupperække og bd-tree-child--2 (#50)
 - 2026-10-08 Fold-pil: én pil, der drejer, i stedet for ▸/▾
 - 2026-10-09 Undergrupper (epics) er foldet sammen fra start (#70)
+- 2026-10-09 Opgraderet til bd-styleguide v0.5: BD-orange accent, rav til "Vigtig", egen blå til "Mindre", Jost til overskrifter, fokusstreg (`--bd-focus-ring`), `--bd-line-strong` på felter, rigtigt logo og favicon. Stack forbliver bd-base.css
